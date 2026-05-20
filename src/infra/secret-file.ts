@@ -19,11 +19,7 @@ export function tryReadSecretFileSync(
   label: string,
   options: Parameters<typeof tryReadSecretFileSyncImpl>[2] = {},
 ): string | undefined {
-  try {
-    return tryReadSecretFileSyncImpl(filePath, label, options);
-  } catch {
-    return undefined;
-  }
+  return tryReadSecretFileSyncImpl(filePath, label, options);
 }
 
 export type SecretFileReadResult =

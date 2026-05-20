@@ -17,6 +17,7 @@ Docs: https://docs.openclaw.ai
 ### Fixes
 
 - WhatsApp: update Baileys to `7.0.0-rc12`.
+- Secrets: preserve secret-file policy errors from `tryReadSecretFileSync` so rejected symlink credential files fail closed instead of being treated as absent.
 - Approvals: route manual `/approve` decisions through the trusted approval runtime so active exec and plugin approvals no longer look unknown or expired.
 - Dependencies: update `@openclaw/fs-safe` to `0.2.7` so OpenClaw's default Python-helper-off policy keeps best-effort Node write fallbacks for private stores, secret writes, run logs, and media attachments on Linux/macOS.
 - Browser: honor the configured image sanitization limit for screenshots and labeled snapshots so browser-captured images follow the same resize policy as other image results. (#84595)
