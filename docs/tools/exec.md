@@ -195,6 +195,7 @@ top-level segment to match.
 
 `autoAllowSkills` is a separate convenience path in exec approvals. It is not the same as
 manual path allowlist entries. For strict explicit trust, keep `autoAllowSkills` disabled.
+It applies only to the actual skill executable; it does not special-case wrapper chains such as `cat SKILL.md && printf ... && <skill-wrapper>`. Agents should read `SKILL.md` with the read tool first, then exec the real command.
 
 Use the two controls for different jobs:
 
