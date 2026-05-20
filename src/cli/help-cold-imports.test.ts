@@ -122,19 +122,6 @@ vi.mock("../commands/agent-via-gateway.js", () => {
   return { agentCliCommand: vi.fn(async () => {}) };
 });
 
-vi.mock("../commands/agents.js", () => {
-  loaded.mark("agents-barrel");
-  return {
-    agentsAddCommand: vi.fn(async () => {}),
-    agentsBindingsCommand: vi.fn(async () => {}),
-    agentsBindCommand: vi.fn(async () => {}),
-    agentsDeleteCommand: vi.fn(async () => {}),
-    agentsListCommand: vi.fn(async () => {}),
-    agentsSetIdentityCommand: vi.fn(async () => {}),
-    agentsUnbindCommand: vi.fn(async () => {}),
-  };
-});
-
 vi.mock("../commands/agents.commands.add.js", () => {
   loaded.mark("agents-add-command");
   return { agentsAddCommand: vi.fn(async () => {}) };
@@ -236,7 +223,6 @@ describe("subcommand help cold imports", () => {
     await expectHelpExit(program, ["agents", "--help"]);
 
     expect(loaded.modules).not.toContain("agent-via-gateway-command");
-    expect(loaded.modules).not.toContain("agents-barrel");
     expect(loaded.modules).not.toContain("agents-add-command");
     expect(loaded.modules).not.toContain("agents-bind-command");
     expect(loaded.modules).not.toContain("agents-delete-command");
