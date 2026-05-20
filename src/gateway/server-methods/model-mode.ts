@@ -1,20 +1,23 @@
 import {
-  readConfigFileSnapshotForWrite,
-  writeConfigFile,
-} from "../../config/config.js";
-import { applyMergePatch } from "../../config/merge-patch.js";
-import { validateConfigObjectWithPlugins } from "../../config/validation.js";
+  applyAgentBrainTierPatch,
+  applyGlobalBrainTierPatch,
+} from "../../agents/brain-config-patch.js";
+import {
+  resolveBrainProfileForMode,
+  type NormalizedBrainTierConfig,
+} from "../../agents/brain-profiles.js";
 import {
   loadModelTierConfig,
   saveModelTierConfig,
   isValidModelTierMode,
-  getProviderModelForTier,
-  MODEL_TIER_MAP,
   MODEL_TIER_LABELS,
   MODEL_TIER_COST,
   MODEL_TIER_COLORS,
+  type ModelTierConfig,
   type ModelTierMode,
 } from "../../agents/model-tiers.js";
+import { readConfigFileSnapshotForWrite, writeConfigFile } from "../../config/config.js";
+import { validateConfigObjectWithPlugins } from "../../config/validation.js";
 import { resolveControlPlaneActor, formatControlPlaneActor } from "../control-plane-audit.js";
 import { ErrorCodes, errorShape } from "../protocol/index.js";
 import type { GatewayRequestHandlers } from "./types.js";
@@ -31,13 +34,39 @@ export const modelModeHandlers: GatewayRequestHandlers = {
         globalMode: tierConfig.globalMode,
         agentOverrides: tierConfig.agentOverrides,
         tiers: Object.fromEntries(
-          (["economy", "baller", "einstein"] as const).map((mode) => [
-            mode,
+          (["economy", "baller", "einstein"] as const).map((mode) => {
+            const resolved = resolveBrainProfileForMode(tierConfig, mode);
+            return [
+              mode,
+              {
+                label: MODEL_TIER_LABELS[mode],
+                model: resolved.model,
+                modelRef: resolved.modelRef,
+                profileId: resolved.profileId,
+                provider: resolved.provider,
+                auth: resolved.auth,
+                billing: resolved.billing,
+                commercialSafe: resolved.commercialSafe,
+                cost: MODEL_TIER_COST[mode],
+                color: MODEL_TIER_COLORS[mode],
+              },
+            ];
+          }),
+        ),
+        tierRouting: tierConfig.tierRouting,
+        brainProfiles: Object.fromEntries(
+          Object.entries(tierConfig.brainProfiles).map(([id, profile]) => [
+            id,
             {
-              label: MODEL_TIER_LABELS[mode],
-              model: MODEL_TIER_MAP[mode],
-              cost: MODEL_TIER_COST[mode],
-              color: MODEL_TIER_COLORS[mode],
+              id,
+              label: profile.label,
+              provider: profile.provider,
+              model: profile.model,
+              modelRef: profile.modelRef,
+              auth: profile.auth,
+              billing: profile.billing,
+              commercialSafe: profile.commercialSafe,
+              notes: profile.notes,
             },
           ]),
         ),
@@ -66,16 +95,12 @@ export const modelModeHandlers: GatewayRequestHandlers = {
 
     // Update tier state file
     const tierConfig = loadModelTierConfig();
-    tierConfig.globalMode = mode as ModelTierMode;
+    tierConfig.globalMode = mode;
     saveModelTierConfig(tierConfig);
+    const resolved = resolveBrainProfileForMode(tierConfig, mode);
 
     // Patch agents.defaults.model AND all agent entries in openclaw.json
-    const writeResult = await writeGlobalTierChange(
-      mode as ModelTierMode,
-      tierConfig,
-      client,
-      context,
-    );
+    const writeResult = await writeGlobalTierChange(mode, tierConfig, client, context);
     if (!writeResult.ok) {
       respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, writeResult.error));
       return;
@@ -91,8 +116,13 @@ export const modelModeHandlers: GatewayRequestHandlers = {
       {
         ok: true,
         globalMode: mode,
-        model: MODEL_TIER_MAP[mode as ModelTierMode],
-        label: MODEL_TIER_LABELS[mode as ModelTierMode],
+        model: resolved.model,
+        modelRef: resolved.modelRef,
+        profileId: resolved.profileId,
+        provider: resolved.provider,
+        auth: resolved.auth,
+        billing: resolved.billing,
+        label: MODEL_TIER_LABELS[mode],
       },
       undefined,
     );
@@ -129,24 +159,19 @@ export const modelModeHandlers: GatewayRequestHandlers = {
     if (mode === "inherit") {
       delete tierConfig.agentOverrides[agentId];
     } else {
-      tierConfig.agentOverrides[agentId] = mode as ModelTierMode;
+      tierConfig.agentOverrides[agentId] = mode;
     }
     saveModelTierConfig(tierConfig);
 
     // Patch the agent's model in openclaw.json
-    const writeResult = await writeAgentModelPatch(
-      agentId,
-      mode as ModelTierMode | "inherit",
-      tierConfig,
-      client,
-      context,
-    );
+    const writeResult = await writeAgentModelPatch(agentId, mode, tierConfig, client, context);
     if (!writeResult.ok) {
       respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, writeResult.error));
       return;
     }
 
     const effectiveMode = tierConfig.agentOverrides[agentId] ?? tierConfig.globalMode;
+    const resolved = resolveBrainProfileForMode(tierConfig, effectiveMode);
 
     // No gateway restart — see comment in model-mode.set above.
     respond(
@@ -156,51 +181,30 @@ export const modelModeHandlers: GatewayRequestHandlers = {
         agentId,
         mode: mode === "inherit" ? "inherit" : mode,
         effectiveMode,
-        effectiveModel: MODEL_TIER_MAP[effectiveMode],
+        effectiveModel: resolved.modelRef,
+        profileId: resolved.profileId,
+        provider: resolved.provider,
+        auth: resolved.auth,
+        billing: resolved.billing,
       },
       undefined,
     );
   },
 };
 
-type WriteResult =
-  | { ok: true; actor: string }
-  | { ok: false; error: string };
+type WriteResult = { ok: true; actor: string } | { ok: false; error: string };
 
 /**
  * Apply a merge-patch to openclaw.json, validate, and write.
  * Does NOT schedule a restart — caller handles that.
  */
-async function writeConfigPatch(
-  patch: Record<string, unknown>,
-  client: unknown,
-  context: { logGateway: { info: (msg: string) => void } },
-  method: string,
-): Promise<WriteResult> {
-  const { snapshot, writeOptions } = await readConfigFileSnapshotForWrite();
-  if (!snapshot.valid) {
-    return { ok: false, error: "invalid config; fix before patching" };
-  }
-  const merged = applyMergePatch(snapshot.config, patch, { mergeObjectArraysById: true });
-  const validated = validateConfigObjectWithPlugins(merged);
-  if (!validated.ok) {
-    return { ok: false, error: "config validation failed" };
-  }
-  const actor = resolveControlPlaneActor(client as Parameters<typeof resolveControlPlaneActor>[0]);
-  context?.logGateway?.info(
-    `${method} write ${formatControlPlaneActor(actor)} reason=${method}`,
-  );
-  await writeConfigFile(validated.config, writeOptions);
-  return { ok: true, actor: actor.actor ?? "unknown" };
-}
-
 /**
  * Patch a specific agent's model in openclaw.json.
  */
 async function writeAgentModelPatch(
   agentId: string,
   mode: ModelTierMode | "inherit",
-  tierConfig: { globalMode: ModelTierMode },
+  tierConfig: ModelTierConfig,
   client: unknown,
   context: { logGateway: { info: (msg: string) => void } },
 ): Promise<WriteResult> {
@@ -209,35 +213,12 @@ async function writeAgentModelPatch(
     return { ok: false, error: "invalid config; fix before patching" };
   }
 
-  const config = { ...(snapshot.config as Record<string, unknown>) };
-  const agents = { ...((config.agents ?? {}) as Record<string, unknown>) };
-  const list = Array.isArray(agents.list)
-    ? (agents.list as Array<Record<string, unknown>>).map((e) => ({ ...e }))
-    : [];
-
-  const agentIndex = list.findIndex(
-    (entry) => typeof entry.id === "string" && entry.id.toLowerCase() === agentId.toLowerCase(),
+  const config = applyAgentBrainTierPatch(
+    snapshot.config as Record<string, unknown>,
+    agentId,
+    mode,
+    tierConfig as NormalizedBrainTierConfig,
   );
-
-  if (mode === "inherit") {
-    if (agentIndex >= 0) {
-      delete list[agentIndex].model;
-    }
-  } else {
-    const modelRef = getProviderModelForTier(mode);
-    if (agentIndex >= 0) {
-      const entry = list[agentIndex];
-      if (entry.model && typeof entry.model === "object" && !Array.isArray(entry.model)) {
-        entry.model = { ...(entry.model as Record<string, unknown>), primary: modelRef };
-      } else {
-        entry.model = modelRef;
-      }
-    } else {
-      list.push({ id: agentId, model: modelRef });
-    }
-  }
-
-  config.agents = { ...agents, list };
   const validated = validateConfigObjectWithPlugins(config);
   const configToWrite = validated.ok ? validated.config : config;
 
@@ -256,7 +237,7 @@ async function writeAgentModelPatch(
  */
 async function writeGlobalTierChange(
   mode: ModelTierMode,
-  tierConfig: { globalMode: ModelTierMode; agentOverrides: Record<string, ModelTierMode> },
+  tierConfig: ModelTierConfig,
   client: unknown,
   context: { logGateway: { info: (msg: string) => void } },
 ): Promise<WriteResult> {
@@ -265,40 +246,11 @@ async function writeGlobalTierChange(
     return { ok: false, error: "invalid config; fix before patching" };
   }
 
-  const config = { ...(snapshot.config as Record<string, unknown>) };
-  const agents = { ...((config.agents ?? {}) as Record<string, unknown>) };
-  const defaults = { ...((agents.defaults ?? {}) as Record<string, unknown>) };
-
-  // Set the global default
-  const globalModelRef = getProviderModelForTier(mode);
-  defaults.model = globalModelRef;
-  agents.defaults = defaults;
-
-  // Update every agent in the list
-  const list = Array.isArray(agents.list)
-    ? (agents.list as Array<Record<string, unknown>>).map((e) => ({ ...e }))
-    : [];
-
-  for (const entry of list) {
-    const agentId = typeof entry.id === "string" ? entry.id : "";
-    if (!agentId) continue;
-
-    // If this agent has a per-agent tier override, use that tier's model
-    const agentTierOverride = tierConfig.agentOverrides[agentId];
-    const agentModel = agentTierOverride
-      ? getProviderModelForTier(agentTierOverride)
-      : globalModelRef;
-
-    // Update the model, preserving fallbacks if present
-    if (entry.model && typeof entry.model === "object" && !Array.isArray(entry.model)) {
-      entry.model = { ...(entry.model as Record<string, unknown>), primary: agentModel };
-    } else {
-      entry.model = agentModel;
-    }
-  }
-
-  agents.list = list;
-  config.agents = agents;
+  const config = applyGlobalBrainTierPatch(
+    snapshot.config as Record<string, unknown>,
+    mode,
+    tierConfig as NormalizedBrainTierConfig,
+  );
 
   const validated = validateConfigObjectWithPlugins(config);
   if (!validated.ok) {
@@ -306,6 +258,9 @@ async function writeGlobalTierChange(
   }
 
   const actor = resolveControlPlaneActor(client as Parameters<typeof resolveControlPlaneActor>[0]);
+  const list = Array.isArray((config.agents as Record<string, unknown> | undefined)?.list)
+    ? ((config.agents as Record<string, unknown>).list as unknown[])
+    : [];
   context?.logGateway?.info(
     `model-mode.set write globalMode=${mode} agents=${list.length} ${formatControlPlaneActor(actor)}`,
   );
