@@ -117,6 +117,53 @@ vi.mock("../commands/flows.js", () => {
   };
 });
 
+vi.mock("../commands/agent-via-gateway.js", () => {
+  loaded.mark("agent-via-gateway-command");
+  return { agentCliCommand: vi.fn(async () => {}) };
+});
+
+vi.mock("../commands/agents.js", () => {
+  loaded.mark("agents-barrel");
+  return {
+    agentsAddCommand: vi.fn(async () => {}),
+    agentsBindingsCommand: vi.fn(async () => {}),
+    agentsBindCommand: vi.fn(async () => {}),
+    agentsDeleteCommand: vi.fn(async () => {}),
+    agentsListCommand: vi.fn(async () => {}),
+    agentsSetIdentityCommand: vi.fn(async () => {}),
+    agentsUnbindCommand: vi.fn(async () => {}),
+  };
+});
+
+vi.mock("../commands/agents.commands.add.js", () => {
+  loaded.mark("agents-add-command");
+  return { agentsAddCommand: vi.fn(async () => {}) };
+});
+
+vi.mock("../commands/agents.commands.bind.js", () => {
+  loaded.mark("agents-bind-command");
+  return {
+    agentsBindingsCommand: vi.fn(async () => {}),
+    agentsBindCommand: vi.fn(async () => {}),
+    agentsUnbindCommand: vi.fn(async () => {}),
+  };
+});
+
+vi.mock("../commands/agents.commands.delete.js", () => {
+  loaded.mark("agents-delete-command");
+  return { agentsDeleteCommand: vi.fn(async () => {}) };
+});
+
+vi.mock("../commands/agents.commands.identity.js", () => {
+  loaded.mark("agents-identity-command");
+  return { agentsSetIdentityCommand: vi.fn(async () => {}) };
+});
+
+vi.mock("../commands/agents.commands.list.js", () => {
+  loaded.mark("agents-list-command");
+  return { agentsListCommand: vi.fn(async () => {}) };
+});
+
 function makeProgram(): Command {
   const program = new Command();
   program.name("openclaw");
@@ -179,5 +226,21 @@ describe("subcommand help cold imports", () => {
     expect(loaded.modules).not.toContain("commitments-command");
     expect(loaded.modules).not.toContain("tasks-command");
     expect(loaded.modules).not.toContain("flows-command");
+  });
+
+  it("keeps agents help out of agent action modules", async () => {
+    const { registerAgentCommands } = await import("./program/register.agent.js");
+    const program = makeProgram();
+
+    registerAgentCommands(program, { agentChannelOptions: "last|telegram|discord" });
+    await expectHelpExit(program, ["agents", "--help"]);
+
+    expect(loaded.modules).not.toContain("agent-via-gateway-command");
+    expect(loaded.modules).not.toContain("agents-barrel");
+    expect(loaded.modules).not.toContain("agents-add-command");
+    expect(loaded.modules).not.toContain("agents-bind-command");
+    expect(loaded.modules).not.toContain("agents-delete-command");
+    expect(loaded.modules).not.toContain("agents-identity-command");
+    expect(loaded.modules).not.toContain("agents-list-command");
   });
 });
