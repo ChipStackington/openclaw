@@ -19,6 +19,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { resolveStateDir } from "../config/paths.js";
 import {
+  DEFAULT_BRAIN_PROFILES,
   normalizeBrainTierConfigParts,
   resolveBrainProfileForMode,
   type BrainProfile,
@@ -67,6 +68,12 @@ export const MODEL_TIER_COLORS: Record<ModelTierMode, string> = {
 
 const VALID_MODES = new Set<string>(["economy", "baller", "einstein"]);
 
+const DEFAULT_TIER_ROUTING: Required<Record<ModelTierMode, string>> = {
+  economy: "openai-api-cheap",
+  baller: "openai-api-balanced",
+  einstein: "openai-codex-subscription-best",
+};
+
 export function isValidModelTierMode(value: unknown): value is ModelTierMode {
   return typeof value === "string" && VALID_MODES.has(value);
 }
@@ -76,17 +83,35 @@ function tierFilePath(): string {
   return path.join(stateDir, "model-tiers.json");
 }
 
+function stripJsonBom(raw: string): string {
+  return raw.charCodeAt(0) === 0xfeff ? raw.slice(1) : raw;
+}
+
+function createDefaultModelTierConfig(): ModelTierConfig {
+  return normalizeBrainTierConfigParts({
+    globalMode: "einstein",
+    agentOverrides: {},
+    tierRouting: DEFAULT_TIER_ROUTING,
+    brainProfiles: DEFAULT_BRAIN_PROFILES,
+  });
+}
+
 /**
  * Read model tier config from the tier state file.
- * Falls back to economy mode if file doesn't exist.
+ * A missing file means first-run Quinn defaults; an existing legacy file stays legacy-compatible.
  */
 export function loadModelTierConfig(): ModelTierConfig {
+  let fileExists = false;
   try {
     const filePath = tierFilePath();
-    if (!fs.existsSync(filePath)) {
-      return normalizeBrainTierConfigParts({});
+    fileExists = fs.existsSync(filePath);
+    if (!fileExists) {
+      return createDefaultModelTierConfig();
     }
-    const raw = JSON.parse(fs.readFileSync(filePath, "utf-8")) as Record<string, unknown>;
+    const raw = JSON.parse(stripJsonBom(fs.readFileSync(filePath, "utf-8"))) as Record<
+      string,
+      unknown
+    >;
     const globalMode = isValidModelTierMode(raw.globalMode) ? raw.globalMode : "economy";
     const rawOverrides =
       raw.agentOverrides && typeof raw.agentOverrides === "object"
@@ -111,7 +136,7 @@ export function loadModelTierConfig(): ModelTierConfig {
           : undefined,
     });
   } catch {
-    return normalizeBrainTierConfigParts({});
+    return fileExists ? normalizeBrainTierConfigParts({}) : createDefaultModelTierConfig();
   }
 }
 

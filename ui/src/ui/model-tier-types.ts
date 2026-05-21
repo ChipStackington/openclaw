@@ -19,7 +19,7 @@ export const MODEL_TIER_COLORS: Record<ModelTierMode, string> = {
 };
 
 export const MODEL_TIER_MODELS: Record<ModelTierMode, string> = {
-  economy: "Haiku 4.5",
-  baller: "Sonnet 4.6",
-  einstein: "Opus 4.6",
+  economy: "GPT-5.4 Mini",
+  baller: "GPT-5.4",
+  einstein: "OpenAI Codex GPT-5.5",
 };

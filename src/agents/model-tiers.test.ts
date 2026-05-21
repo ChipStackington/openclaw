@@ -31,13 +31,13 @@ function writeTierFile(value: unknown): void {
 }
 
 describe("model tier config", () => {
-  it("loads missing config as legacy-compatible economy mode", () => {
+  it("loads missing config as Quinn-ready Einstein Mode on OpenAI Codex GPT-5.5", () => {
     const config = loadModelTierConfig();
 
-    expect(config.globalMode).toBe("economy");
+    expect(config.globalMode).toBe("einstein");
     expect(config.agentOverrides).toEqual({});
-    expect(config.tierRouting.economy).toBe("legacy-anthropic-haiku");
-    expect(getProviderModelForTier("economy", config)).toBe("anthropic/claude-haiku-4-5-20251001");
+    expect(config.tierRouting.einstein).toBe("openai-codex-subscription-best");
+    expect(getProviderModelForTier("einstein", config)).toBe("openai-codex/gpt-5.5");
   });
 
   it("loads new tierRouting and brainProfiles", () => {
@@ -58,6 +58,19 @@ describe("model tier config", () => {
     expect(config.agentOverrides).toEqual({ quinn: "baller" });
     expect(getProviderModelForTier("einstein", config)).toBe("openai-codex/gpt-5.5");
     expect(getProviderModelForTier("baller", config)).toBe("openai/gpt-5.4");
+  });
+
+  it("keeps existing legacy tier files legacy-compatible until migration", () => {
+    writeTierFile({
+      globalMode: "einstein",
+      agentOverrides: {},
+    });
+
+    const config = loadModelTierConfig();
+
+    expect(config.globalMode).toBe("einstein");
+    expect(config.tierRouting.einstein).toBe("legacy-anthropic-opus");
+    expect(getProviderModelForTier("einstein", config)).toBe("anthropic/claude-opus-4-6");
   });
 
   it("drops invalid modes, invalid overrides, and invalid profile references", () => {
@@ -86,5 +99,23 @@ describe("model tier config", () => {
     expect(raw.brainProfiles["openai-codex-subscription-best"].modelRef).toBe(
       "openai-codex/gpt-5.5",
     );
+  });
+
+  it("loads BOM-prefixed model tier state", () => {
+    fs.writeFileSync(
+      path.join(tempStateDir, "model-tiers.json"),
+      `\uFEFF${JSON.stringify({
+        globalMode: "einstein",
+        agentOverrides: { quinn: "baller" },
+        tierRouting: { einstein: "openai-codex-subscription-best" },
+      })}`,
+      "utf-8",
+    );
+
+    const config = loadModelTierConfig();
+
+    expect(config.globalMode).toBe("einstein");
+    expect(config.agentOverrides).toEqual({ quinn: "baller" });
+    expect(getProviderModelForTier("einstein", config)).toBe("openai-codex/gpt-5.5");
   });
 });
