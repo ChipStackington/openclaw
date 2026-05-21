@@ -37,6 +37,8 @@ describe("model tier config", () => {
     expect(config.globalMode).toBe("einstein");
     expect(config.agentOverrides).toEqual({});
     expect(config.tierRouting.einstein).toBe("openai-codex-subscription-best");
+    expect(config.tierRouting.baller).toBe("openai-codex-subscription-balanced");
+    expect(getProviderModelForTier("baller", config)).toBe("openai-codex/gpt-5.4");
     expect(getProviderModelForTier("einstein", config)).toBe("openai-codex/gpt-5.5");
   });
 

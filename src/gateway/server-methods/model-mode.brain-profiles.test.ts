@@ -88,9 +88,10 @@ describe("model-mode brain profiles", () => {
         }),
         baller: expect.objectContaining({
           label: "Executive Mode",
-          modelRef: "openai/gpt-5.4",
-          provider: "openai",
-          billing: "metered",
+          modelRef: "openai-codex/gpt-5.4",
+          provider: "openai-codex",
+          auth: "oauth",
+          billing: "subscription",
         }),
         einstein: expect.objectContaining({
           label: "Einstein Mode",

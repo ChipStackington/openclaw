@@ -70,7 +70,7 @@ const VALID_MODES = new Set<string>(["economy", "baller", "einstein"]);
 
 const DEFAULT_TIER_ROUTING: Required<Record<ModelTierMode, string>> = {
   economy: "openai-api-cheap",
-  baller: "openai-api-balanced",
+  baller: "openai-codex-subscription-balanced",
   einstein: "openai-codex-subscription-best",
 };
 
