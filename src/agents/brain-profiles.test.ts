@@ -24,7 +24,7 @@ describe("brain profile resolver", () => {
     const normalized = normalizeBrainTierConfigParts({
       tierRouting: {
         economy: "openai-api-cheap",
-        baller: "openai-api-balanced",
+        baller: "openai-codex-subscription-balanced",
         einstein: "openai-codex-subscription-best",
       },
       brainProfiles: DEFAULT_BRAIN_PROFILES,
@@ -39,6 +39,16 @@ describe("brain profile resolver", () => {
       billing: "subscription",
       commercialSafe: false,
       params: { reasoning_effort: "high" },
+      fallbacks: [],
+    });
+    expect(resolveBrainProfileForMode(normalized, "baller")).toMatchObject({
+      mode: "baller",
+      profileId: "openai-codex-subscription-balanced",
+      modelRef: "openai-codex/gpt-5.4",
+      provider: "openai-codex",
+      auth: "oauth",
+      billing: "subscription",
+      params: { reasoning_effort: "medium" },
       fallbacks: [],
     });
   });
