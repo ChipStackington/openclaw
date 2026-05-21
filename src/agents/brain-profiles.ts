@@ -58,7 +58,7 @@ export type ResolvedBrainProfile = {
 export const DEFAULT_BRAIN_PROFILES: Record<string, BrainProfile> = {
   "openai-codex-subscription-best": {
     id: "openai-codex-subscription-best",
-    label: "OpenAI Codex GPT-5.5",
+    label: "Einstein Mode OpenAI Codex GPT-5.5",
     provider: "openai-codex",
     model: "gpt-5.5",
     auth: "oauth",
@@ -72,7 +72,7 @@ export const DEFAULT_BRAIN_PROFILES: Record<string, BrainProfile> = {
   },
   "openai-api-balanced": {
     id: "openai-api-balanced",
-    label: "OpenAI Balanced API",
+    label: "Executive Mode GPT-5.4",
     provider: "openai",
     model: "gpt-5.4",
     auth: "apiKey",
@@ -86,7 +86,7 @@ export const DEFAULT_BRAIN_PROFILES: Record<string, BrainProfile> = {
   },
   "openai-api-cheap": {
     id: "openai-api-cheap",
-    label: "OpenAI Cheap API",
+    label: "Economy Mode GPT-5.4 Mini",
     provider: "openai",
     model: "gpt-5.4-mini",
     auth: "apiKey",

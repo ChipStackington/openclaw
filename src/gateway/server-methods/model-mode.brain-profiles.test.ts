@@ -76,15 +76,27 @@ describe("model-mode brain profiles", () => {
 
     expect(calls[0].ok).toBe(true);
     expect(calls[0].payload).toMatchObject({
-      globalMode: "economy",
+      globalMode: "einstein",
       tierRouting: expect.any(Object),
       brainProfiles: expect.any(Object),
       tiers: {
         economy: expect.objectContaining({
           label: "Economy Mode",
-          modelRef: "anthropic/claude-haiku-4-5-20251001",
-          provider: "anthropic",
+          modelRef: "openai/gpt-5.4-mini",
+          provider: "openai",
           billing: "metered",
+        }),
+        baller: expect.objectContaining({
+          label: "Executive Mode",
+          modelRef: "openai/gpt-5.4",
+          provider: "openai",
+          billing: "metered",
+        }),
+        einstein: expect.objectContaining({
+          label: "Einstein Mode",
+          modelRef: "openai-codex/gpt-5.5",
+          provider: "openai-codex",
+          billing: "subscription",
         }),
       },
     });
@@ -104,7 +116,7 @@ describe("model-mode brain profiles", () => {
       expect.objectContaining({
         agents: expect.objectContaining({
           defaults: expect.objectContaining({
-            model: "anthropic/claude-opus-4-6",
+            model: "openai-codex/gpt-5.5",
           }),
         }),
       }),
@@ -115,8 +127,8 @@ describe("model-mode brain profiles", () => {
       payload: expect.objectContaining({
         ok: true,
         globalMode: "einstein",
-        modelRef: "anthropic/claude-opus-4-6",
-        billing: "metered",
+        modelRef: "openai-codex/gpt-5.5",
+        billing: "subscription",
       }),
     });
   });
@@ -134,7 +146,7 @@ describe("model-mode brain profiles", () => {
     expect(mocks.writeConfigFile).toHaveBeenCalledWith(
       expect.objectContaining({
         agents: expect.objectContaining({
-          list: [expect.objectContaining({ id: "quinn", model: "anthropic/claude-opus-4-6" })],
+          list: [expect.objectContaining({ id: "quinn", model: "openai-codex/gpt-5.5" })],
         }),
       }),
       {},
@@ -143,7 +155,7 @@ describe("model-mode brain profiles", () => {
       ok: true,
       payload: expect.objectContaining({
         agentId: "quinn",
-        effectiveModel: "anthropic/claude-opus-4-6",
+        effectiveModel: "openai-codex/gpt-5.5",
       }),
     });
   });

@@ -632,9 +632,9 @@ export class OpenClawApp extends LitElement {
   async handleModelTierSet(mode: ModelTierMode) {
     if (mode === "einstein") {
       const confirmed = window.confirm(
-        "Einstein Mode uses Claude Opus 4.6\n\n" +
-          "This is significantly more expensive per token.\n" +
-          "Recommended for complex strategy and critical tasks only.\n\n" +
+        "Einstein Mode uses OpenAI Codex GPT-5.5\n\n" +
+          "Recommended for complex strategy and critical tasks.\n" +
+          "Requires the OpenAI Codex transport to be available.\n\n" +
           "Enable Einstein Mode?",
       );
       if (!confirmed) return;
@@ -645,9 +645,9 @@ export class OpenClawApp extends LitElement {
   async handleModelTierAgentSet(agentId: string, mode: ModelTierMode | "inherit") {
     if (mode === "einstein") {
       const confirmed = window.confirm(
-        "Einstein Mode uses Claude Opus 4.6\n\n" +
-          "This is significantly more expensive per token.\n" +
-          "Recommended for complex strategy and critical tasks only.\n\n" +
+        "Einstein Mode uses OpenAI Codex GPT-5.5\n\n" +
+          "Recommended for complex strategy and critical tasks.\n" +
+          "Requires the OpenAI Codex transport to be available.\n\n" +
           `Enable Einstein Mode for agent "${agentId}"?`,
       );
       if (!confirmed) return;

@@ -4,6 +4,7 @@ import { createServer } from "node:net";
 import os from "node:os";
 import path from "node:path";
 import type { Api, Model } from "@mariozechner/pi-ai";
+import type { ModelRegistry } from "@mariozechner/pi-coding-agent";
 import { describe, it } from "vitest";
 import { resolveOpenClawAgentDir } from "../agents/agent-paths.js";
 import { resolveAgentWorkspaceDir } from "../agents/agent-scope.js";
@@ -19,6 +20,7 @@ import {
   isAnthropicRateLimitError,
 } from "../agents/live-auth-keys.js";
 import { isModernModelRef } from "../agents/live-model-filter.js";
+import { resolveForwardCompatModel } from "../agents/model-forward-compat.js";
 import { getApiKeyForModel } from "../agents/model-auth.js";
 import { ensureOpenClawModelsJson } from "../agents/models-config.js";
 import { isRateLimitErrorMessage } from "../agents/pi-embedded-helpers/errors.js";
@@ -164,6 +166,72 @@ function capByProviderSpread<T>(
     }
   }
   return selected;
+}
+
+function modelRefKey(provider: string, modelId: string): string {
+  return `${provider.trim().toLowerCase()}/${modelId.trim().toLowerCase()}`;
+}
+
+function parseExplicitModelRef(ref: string): { provider: string; modelId: string } | null {
+  const trimmed = ref.trim();
+  const slash = trimmed.indexOf("/");
+  if (slash <= 0 || slash === trimmed.length - 1) {
+    return null;
+  }
+  const provider = trimmed.slice(0, slash).trim();
+  const modelId = trimmed.slice(slash + 1).trim();
+  return provider && modelId ? { provider, modelId } : null;
+}
+
+export function selectGatewayLiveWantedModels(params: {
+  all: Array<Model<Api>>;
+  modelRegistry: ModelRegistry;
+  rawModels?: string;
+}): { useExplicit: boolean; models: Array<Model<Api>> } {
+  const rawModels = params.rawModels?.trim();
+  const useModern = !rawModels || rawModels === "modern" || rawModels === "all";
+  const useExplicit = Boolean(rawModels) && !useModern;
+  if (!useExplicit) {
+    return {
+      useExplicit: false,
+      models: params.all.filter((m) => isModernModelRef({ provider: m.provider, id: m.id })),
+    };
+  }
+
+  const filter = parseFilter(rawModels);
+  if (!filter) {
+    return { useExplicit: false, models: params.all };
+  }
+
+  const byKey = new Map(params.all.map((model) => [modelRefKey(model.provider, model.id), model]));
+  const selected: Array<Model<Api>> = [];
+  const seen = new Set<string>();
+  for (const ref of filter) {
+    const parsed = parseExplicitModelRef(ref);
+    if (!parsed) {
+      continue;
+    }
+    const key = modelRefKey(parsed.provider, parsed.modelId);
+    if (seen.has(key)) {
+      continue;
+    }
+    const exact = byKey.get(key);
+    if (exact) {
+      selected.push(exact);
+      seen.add(key);
+      continue;
+    }
+    const forwardCompat = resolveForwardCompatModel(
+      parsed.provider,
+      parsed.modelId,
+      params.modelRegistry,
+    );
+    if (forwardCompat) {
+      selected.push(forwardCompat);
+      seen.add(key);
+    }
+  }
+  return { useExplicit: true, models: selected };
 }
 
 function logProgress(message: string): void {
@@ -1327,14 +1395,14 @@ describeLive("gateway live (dev agent, profile keys)", () => {
       const modelRegistry = discoverModels(authStorage, agentDir);
       const all = modelRegistry.getAll();
 
-      const rawModels = process.env.OPENCLAW_LIVE_GATEWAY_MODELS?.trim();
-      const useModern = !rawModels || rawModels === "modern" || rawModels === "all";
-      const useExplicit = Boolean(rawModels) && !useModern;
-      const filter = useExplicit ? parseFilter(rawModels) : null;
+      const selection = selectGatewayLiveWantedModels({
+        all,
+        modelRegistry,
+        rawModels: process.env.OPENCLAW_LIVE_GATEWAY_MODELS,
+      });
+      const useExplicit = selection.useExplicit;
       const maxModels = GATEWAY_LIVE_MAX_MODELS;
-      const wanted = filter
-        ? all.filter((m) => filter.has(`${m.provider}/${m.id}`))
-        : all.filter((m) => isModernModelRef({ provider: m.provider, id: m.id }));
+      const wanted = selection.models;
 
       const providerProfileCache = new Map<string, boolean>();
       const candidates: Array<Model<Api>> = [];
