@@ -90,6 +90,9 @@ const COMPACTION_TOAST_DURATION_MS = 5000;
 const FALLBACK_TOAST_DURATION_MS = 8000;
 
 function adjustTextareaHeight(el: HTMLTextAreaElement) {
+  if (el.closest(".shell--mc-embed")) {
+    return;
+  }
   el.style.height = "auto";
   el.style.height = `${el.scrollHeight}px`;
 }

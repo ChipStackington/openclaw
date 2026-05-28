@@ -226,6 +226,34 @@ describe("chat view", () => {
     expect(container.textContent).not.toContain("Stop");
   });
 
+  it("does not mutate textarea height in Mission Control embed mode", () => {
+    const container = document.createElement("div");
+    container.className = "shell--mc-embed";
+    const onDraftChange = vi.fn();
+    render(
+      renderChat(
+        createProps({
+          draft: "steady",
+          onDraftChange,
+        }),
+      ),
+      container,
+    );
+
+    const textarea = container.querySelector("textarea");
+    expect(textarea).not.toBeNull();
+    if (!textarea) {
+      return;
+    }
+
+    textarea.style.height = "104px";
+    textarea.value = "steady layout";
+    textarea.dispatchEvent(new InputEvent("input", { bubbles: true }));
+
+    expect(onDraftChange).toHaveBeenCalledWith("steady layout");
+    expect(textarea.style.height).toBe("104px");
+  });
+
   it("shows sender labels from sanitized gateway messages instead of generic You", () => {
     const container = document.createElement("div");
     render(

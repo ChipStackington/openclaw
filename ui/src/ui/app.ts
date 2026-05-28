@@ -109,6 +109,19 @@ function resolveOnboardingMode(): boolean {
   return normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on";
 }
 
+function resolveMissionControlEmbedMode(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  const params = new URLSearchParams(window.location.search);
+  const hashParams = new URLSearchParams(
+    window.location.hash.startsWith("#") ? window.location.hash.slice(1) : window.location.hash,
+  );
+  const raw = params.get("embed") ?? hashParams.get("embed");
+  const normalized = raw?.trim().toLowerCase();
+  return normalized === "mc" || normalized === "mission-control" || normalized === "1";
+}
+
 @customElement("openclaw-app")
 export class OpenClawApp extends LitElement {
   private i18nController = new I18nController(this);
@@ -124,6 +137,7 @@ export class OpenClawApp extends LitElement {
   @state() password = "";
   @state() tab: Tab = "chat";
   @state() onboarding = resolveOnboardingMode();
+  @state() embedMode = resolveMissionControlEmbedMode();
   @state() connected = false;
   @state() theme: ThemeMode = this.settings.theme ?? "system";
   @state() themeResolved: ResolvedTheme = "dark";

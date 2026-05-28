@@ -163,7 +163,7 @@ export function renderApp(state: AppViewState) {
   const cronNext = state.cronStatus?.nextWakeAtMs ?? null;
   const chatDisabledReason = state.connected ? null : t("chat.disconnected");
   const isChat = state.tab === "chat";
-  const chatFocus = isChat && (state.settings.chatFocusMode || state.onboarding);
+  const chatFocus = isChat && (state.settings.chatFocusMode || state.onboarding || state.embedMode);
   const showThinking = state.onboarding ? false : state.settings.chatShowThinking;
   const assistantAvatarUrl = resolveAssistantAvatarUrl(state);
   const chatAvatarUrl = state.chatAvatarUrl ?? assistantAvatarUrl ?? null;
@@ -235,8 +235,8 @@ export function renderApp(state: AppViewState) {
       : rawDeliveryToSuggestions;
 
   return html`
-    <div class="shell ${isChat ? "shell--chat" : ""} ${chatFocus ? "shell--chat-focus" : ""} ${state.settings.navCollapsed ? "shell--nav-collapsed" : ""} ${state.onboarding ? "shell--onboarding" : ""}">
-      <header class="topbar">
+    <div class="shell ${isChat ? "shell--chat" : ""} ${chatFocus ? "shell--chat-focus" : ""} ${state.settings.navCollapsed ? "shell--nav-collapsed" : ""} ${state.onboarding ? "shell--onboarding" : ""} ${state.embedMode ? "shell--mc-embed" : ""}">
+      ${state.embedMode ? nothing : html`<header class="topbar">
         <div class="topbar-left">
           <button
             class="nav-collapse-toggle"
@@ -274,8 +274,8 @@ export function renderApp(state: AppViewState) {
           ${renderModelTierToggle(state)}
           ${renderThemeToggle(state)}
         </div>
-      </header>
-      <aside class="nav ${state.settings.navCollapsed ? "nav--collapsed" : ""}">
+      </header>`}
+      ${state.embedMode ? nothing : html`<aside class="nav ${state.settings.navCollapsed ? "nav--collapsed" : ""}">
         ${TAB_GROUPS.map((group) => {
           const isGroupCollapsed = state.settings.navGroupsCollapsed[group.label] ?? false;
           const hasActiveTab = group.tabs.some((tab) => tab === state.tab);
@@ -319,7 +319,7 @@ export function renderApp(state: AppViewState) {
             </a>
           </div>
         </div>
-      </aside>
+      </aside>`}
       <main class="content ${isChat ? "content--chat" : ""}">
         ${
           availableUpdate
@@ -334,7 +334,7 @@ export function renderApp(state: AppViewState) {
             </div>`
             : nothing
         }
-        <section class="content-header">
+        ${state.embedMode ? nothing : html`<section class="content-header">
           <div>
             ${state.tab === "usage" ? nothing : html`<div class="page-title">${titleForTab(state.tab)}</div>`}
             ${state.tab === "usage" ? nothing : html`<div class="page-sub">${subtitleForTab(state.tab)}</div>`}
@@ -343,7 +343,7 @@ export function renderApp(state: AppViewState) {
             ${state.lastError ? html`<div class="pill danger">${state.lastError}</div>` : nothing}
             ${isChat ? renderChatControls(state) : nothing}
           </div>
-        </section>
+        </section>`}
 
         ${
           state.tab === "overview"

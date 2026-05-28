@@ -52,6 +52,14 @@
   grid-template-rows: 0 1fr;
 }
 
+.shell--mc-embed {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-areas: "content";
+  animation: none;
+  background: transparent;
+}
+
 .shell--onboarding .topbar {
   display: none;
 }
@@ -62,6 +70,30 @@
 
 .shell--chat-focus .content {
   padding-top: 0;
+}
+
+.shell--mc-embed .content {
+  padding: 0;
+  background: transparent;
+}
+
+.shell--mc-embed .chat {
+  height: 100%;
+  min-height: 100%;
+}
+
+.shell--mc-embed .chat-focus-exit {
+  display: none;
+}
+
+.shell--mc-embed .chat-thread {
+  padding: 18px 14px 10px;
+  margin: 0;
+}
+
+.shell--mc-embed .chat-compose {
+  padding: 12px 14px 14px;
+  background: linear-gradient(to bottom, transparent, rgba(2, 2, 14, 0.92) 24%);
 }
 
 .shell--chat-focus .content > * + * {

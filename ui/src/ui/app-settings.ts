@@ -47,7 +47,9 @@ type SettingsHost = {
   applySessionKey: string;
   sessionKey: string;
   tab: Tab;
+  embedMode: boolean;
   connected: boolean;
+  voiceEnabled: boolean;
   chatHasAutoScrolled: boolean;
   logsAtBottom: boolean;
   eventLog: unknown[];
@@ -145,6 +147,12 @@ export function applySettingsFromUrl(host: SettingsHost) {
     if (host.voiceEnabled) {
       import("./voice-tts.ts").then((m) => m.unlockAudio());
     }
+  }
+
+  const embedRaw = params.get("embed") ?? hashParams.get("embed");
+  if (embedRaw != null) {
+    const embed = embedRaw.trim().toLowerCase();
+    host.embedMode = embed === "mc" || embed === "mission-control" || embed === "1";
   }
 
   if (gatewayUrlRaw != null) {

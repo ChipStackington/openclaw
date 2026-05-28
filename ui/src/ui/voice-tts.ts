@@ -7,9 +7,77 @@
 import type { GatewayBrowserClient } from "./gateway.ts";
 
 const MAX_SPEECH_CHARS = 8000;
+const SPEECH_ACTIVITY_FLOOR = 0.045;
 
 let _audioContext: AudioContext | null = null;
 let _currentSource: AudioBufferSourceNode | null = null;
+
+type VoiceTelemetryState = "idle" | "speaking" | "error";
+
+function emitVoiceTelemetry(state: VoiceTelemetryState, level = 0): void {
+  try {
+    window.parent?.postMessage(
+      {
+        type: "openclaw:voice-telemetry",
+        state,
+        level,
+      },
+      "*",
+    );
+  } catch {
+    // Parent frame may be unavailable; voice playback should continue.
+  }
+}
+
+function startAnalyserTelemetry(
+  context: AudioContext,
+  source: AudioBufferSourceNode,
+): { stop: () => void } {
+  const analyser = context.createAnalyser();
+  analyser.fftSize = 256;
+  analyser.smoothingTimeConstant = 0.32;
+
+  source.connect(analyser);
+  analyser.connect(context.destination);
+
+  const data = new Uint8Array(analyser.frequencyBinCount);
+  const waveform = new Uint8Array(analyser.fftSize);
+  let stopped = false;
+  let frame = 0;
+
+  const tick = () => {
+    if (stopped) return;
+    analyser.getByteFrequencyData(data);
+    analyser.getByteTimeDomainData(waveform);
+    const total = data.reduce((sum, value) => sum + value, 0);
+    const frequencyLevel = total / data.length / 128;
+    let squareTotal = 0;
+    for (const value of waveform) {
+      const centered = (value - 128) / 128;
+      squareTotal += centered * centered;
+    }
+    const rms = Math.sqrt(squareTotal / waveform.length);
+    const rawLevel = Math.min(1, Math.max(frequencyLevel, Math.max(0, rms - 0.012) * 8.5));
+    const level =
+      rawLevel <= SPEECH_ACTIVITY_FLOOR
+        ? 0
+        : Math.min(1, (rawLevel - SPEECH_ACTIVITY_FLOOR) / (1 - SPEECH_ACTIVITY_FLOOR));
+    if (frame % 3 === 0) {
+      emitVoiceTelemetry(level > 0 ? "speaking" : "idle", level);
+    }
+    frame += 1;
+    requestAnimationFrame(tick);
+  };
+
+  requestAnimationFrame(tick);
+
+  return {
+    stop: () => {
+      stopped = true;
+      emitVoiceTelemetry("idle", 0);
+    },
+  };
+}
 
 /** Call this on user gesture (e.g. voice toggle click) to unlock AudioContext. */
 export function unlockAudio(): void {
@@ -81,8 +149,9 @@ export async function speakText(
     const audioBuffer = await _audioContext.decodeAudioData(bytes.buffer);
     const source = _audioContext.createBufferSource();
     source.buffer = audioBuffer;
-    source.connect(_audioContext.destination);
+    const telemetry = startAnalyserTelemetry(_audioContext, source);
     source.onended = () => {
+      telemetry.stop();
       _currentSource = null;
     };
     _currentSource = source;
@@ -90,6 +159,7 @@ export async function speakText(
 
     console.log("[voice] Playback started, duration:", audioBuffer.duration.toFixed(1), "s");
   } catch (err) {
+    emitVoiceTelemetry("error", 0);
     console.warn("[voice] TTS failed:", err);
   }
 }
