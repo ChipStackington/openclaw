@@ -262,6 +262,7 @@ export const agentHandlers: GatewayRequestHandlers = {
       extraSystemPrompt?: string;
       internalEvents?: AgentInternalEvent[];
       idempotencyKey: string;
+      suppressOutcomeEmit?: boolean;
       timeout?: number;
       bestEffortDeliver?: boolean;
       label?: string;

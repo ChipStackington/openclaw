@@ -51,6 +51,7 @@ export type AgentCliOpts = {
   runId?: string;
   extraSystemPrompt?: string;
   local?: boolean;
+  suppressJudgeEmit?: boolean;
 };
 
 function parseTimeoutSeconds(opts: { cfg: ReturnType<typeof loadConfig>; timeout?: string }) {
@@ -146,6 +147,7 @@ export async function agentViaGatewayCommand(opts: AgentCliOpts, runtime: Runtim
           lane: opts.lane,
           extraSystemPrompt: opts.extraSystemPrompt,
           idempotencyKey,
+          suppressOutcomeEmit: opts.suppressJudgeEmit === true ? true : undefined,
         },
         expectFinal: true,
         timeoutMs: gatewayTimeoutMs,

@@ -44,6 +44,11 @@ export function registerAgentCommands(program: Command, args: { agentChannelOpti
     .option("--deliver", "Send the agent's reply back to the selected channel", false)
     .option("--json", "Output result as JSON", false)
     .option(
+      "--suppress-judge-emit",
+      "Do not emit this run to the Judge sink (used by the Judge re-dispatch loop to avoid double-judging)",
+      false,
+    )
+    .option(
       "--timeout <seconds>",
       "Override agent command timeout (seconds, default 600 or config value)",
     )
