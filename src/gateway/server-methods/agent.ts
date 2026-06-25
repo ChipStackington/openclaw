@@ -64,6 +64,9 @@ import {
 import { normalizeRpcAttachmentsToChatAttachments } from "./attachment-normalize.js";
 import { sessionsHandlers } from "./sessions.js";
 import type { GatewayRequestHandlerOptions, GatewayRequestHandlers } from "./types.js";
+import { resolveJudgeSink } from "../../infra/outcomes/judge-sink-config.js";
+import { maybeEmitOutcome } from "../../infra/outcomes/judge-sink.js";
+import type { JudgeSinkConfig } from "../../infra/outcomes/judge-sink-config.js";
 
 const RESET_COMMAND_RE = /^\/(new|reset)(?:\s+([\s\S]*))?$/i;
 
@@ -175,6 +178,10 @@ function dispatchAgentRunFromGateway(params: {
   idempotencyKey: string;
   respond: GatewayRequestHandlerOptions["respond"];
   context: GatewayRequestHandlerOptions["context"];
+  sink: JudgeSinkConfig | undefined;
+  emitAgentId: string | undefined;
+  spawnedBy: string | undefined;
+  suppressOutcomeEmit: boolean | undefined;
 }) {
   void agentCommandFromIngress(params.ingressOpts, defaultRuntime, params.context.deps)
     .then((result) => {
@@ -192,6 +199,16 @@ function dispatchAgentRunFromGateway(params: {
           ok: true,
           payload,
         },
+      });
+      // Bridge A: feed the completed top-level task to the Judge sink (fire-and-forget).
+      maybeEmitOutcome({
+        sink: params.sink,
+        spawnedBy: params.spawnedBy,
+        suppressOutcomeEmit: params.suppressOutcomeEmit,
+        agentId: params.emitAgentId,
+        task: params.ingressOpts.message,
+        result,
+        runId: params.runId,
       });
       // Send a second res frame (same id) so TS clients with expectFinal can wait.
       // Swift clients will typically treat the first res as the result and ignore this.
@@ -672,6 +689,12 @@ export const agentHandlers: GatewayRequestHandlers = {
 
     const resolvedThreadId = explicitThreadId ?? deliveryPlan.resolvedThreadId;
 
+    const judgeSink = resolveJudgeSink(cfg);
+    const emitAgentId = resolvedSessionKey
+      ? resolveAgentIdFromSessionKey(resolvedSessionKey)
+      : agentId;
+    const suppressOutcomeEmit = request.suppressOutcomeEmit === true;
+
     dispatchAgentRunFromGateway({
       ingressOpts: {
         message,
@@ -716,6 +739,10 @@ export const agentHandlers: GatewayRequestHandlers = {
       idempotencyKey: idem,
       respond,
       context,
+      sink: judgeSink,
+      emitAgentId,
+      spawnedBy: spawnedByValue,
+      suppressOutcomeEmit,
     });
   },
   "agent.identity.get": ({ params, respond }) => {
