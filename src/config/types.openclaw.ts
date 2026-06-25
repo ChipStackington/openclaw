@@ -120,6 +120,13 @@ export type OpenClawConfig = {
   talk?: TalkConfig;
   gateway?: GatewayConfig;
   memory?: MemoryConfig;
+  /** Optional Judge sink: when set, completed top-level agent tasks are POSTed
+   *  to the Quinn-Co workspace bus for validation. Absent = no emit. */
+  judgeSink?: {
+    url: string;
+    token: string;
+    department?: string;
+  };
 };
 
 export type ConfigValidationIssue = {

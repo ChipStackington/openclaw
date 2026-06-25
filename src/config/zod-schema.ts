@@ -875,6 +875,14 @@ export const OpenClawSchema = z
       })
       .strict()
       .optional(),
+    judgeSink: z
+      .object({
+        url: z.string(),
+        token: z.string(),
+        department: z.string().optional(),
+      })
+      .strict()
+      .optional(),
   })
   .strict()
   .superRefine((cfg, ctx) => {
