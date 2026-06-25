@@ -66,8 +66,9 @@ export interface MaybeEmitArgs {
   runId: string;
 }
 
-// Applies every gate (D2/D3/D5/D7) then fires the emit. Returns whether it
-// emitted so the gateway hook + tests can assert without awaiting the POST.
+// Applies every skip gate (no sink / subagent / suppressed re-dispatch / no agentId / empty output)
+// then fires the emit fire-and-forget. Returns whether it emitted so the gateway hook + tests can
+// assert without awaiting the POST.
 export function maybeEmitOutcome(
   args: MaybeEmitArgs,
   deps: { emitImpl?: (e: OutcomeEmit, s: JudgeSinkConfig) => void } = {},

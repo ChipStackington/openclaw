@@ -85,17 +85,21 @@ describe("maybeEmitOutcome", () => {
   it("skips subagent runs (spawnedBy set)", () => {
     const emitImpl = vi.fn();
     expect(maybeEmitOutcome({ ...base, spawnedBy: "quinn" }, { emitImpl })).toBe(false);
+    expect(emitImpl).not.toHaveBeenCalled();
   });
   it("skips suppressed (judge re-dispatch) runs", () => {
     const emitImpl = vi.fn();
     expect(maybeEmitOutcome({ ...base, suppressOutcomeEmit: true }, { emitImpl })).toBe(false);
+    expect(emitImpl).not.toHaveBeenCalled();
   });
   it("skips when agentId missing", () => {
     const emitImpl = vi.fn();
     expect(maybeEmitOutcome({ ...base, agentId: undefined }, { emitImpl })).toBe(false);
+    expect(emitImpl).not.toHaveBeenCalled();
   });
   it("skips when output text is empty", () => {
     const emitImpl = vi.fn();
     expect(maybeEmitOutcome({ ...base, result: { payloads: [] } }, { emitImpl })).toBe(false);
+    expect(emitImpl).not.toHaveBeenCalled();
   });
 });
