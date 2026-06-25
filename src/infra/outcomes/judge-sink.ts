@@ -46,3 +46,40 @@ export async function emitOutcomeToJudgeSink(
     console.warn(`[judge-sink] emit failed for run ${emit.runId}: ${String(err)}`);
   }
 }
+
+export function extractOutputText(
+  result: { payloads?: Array<{ text?: string }> } | null | undefined,
+): string {
+  const texts = (result?.payloads ?? [])
+    .map((p) => p.text)
+    .filter((t): t is string => Boolean(t && t.trim()));
+  return texts.join("\n").trim();
+}
+
+export interface MaybeEmitArgs {
+  sink: JudgeSinkConfig | undefined;
+  spawnedBy: string | undefined;
+  suppressOutcomeEmit: boolean | undefined;
+  agentId: string | undefined;
+  task: string;
+  result: { payloads?: Array<{ text?: string }> } | null | undefined;
+  runId: string;
+}
+
+// Applies every gate (D2/D3/D5/D7) then fires the emit. Returns whether it
+// emitted so the gateway hook + tests can assert without awaiting the POST.
+export function maybeEmitOutcome(
+  args: MaybeEmitArgs,
+  deps: { emitImpl?: (e: OutcomeEmit, s: JudgeSinkConfig) => void } = {},
+): boolean {
+  if (!args.sink) return false;
+  if (args.spawnedBy) return false; // top-level only
+  if (args.suppressOutcomeEmit) return false; // judge re-dispatch
+  if (!args.agentId) return false;
+  const output = extractOutputText(args.result);
+  if (!output) return false; // nothing to judge
+  const emit: OutcomeEmit = { task: args.task, output, runId: args.runId, agentId: args.agentId };
+  const emitImpl = deps.emitImpl ?? ((e, s) => void emitOutcomeToJudgeSink(e, s));
+  emitImpl(emit, args.sink);
+  return true;
+}

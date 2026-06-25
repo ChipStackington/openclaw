@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { emitOutcomeToJudgeSink } from "./judge-sink.js";
+import { emitOutcomeToJudgeSink, extractOutputText, maybeEmitOutcome } from "./judge-sink.js";
 
 const sink = { url: "http://127.0.0.1:4242/", token: "tok", department: "sales" };
 const emit = { task: "do X", output: "did X", runId: "run-1", agentId: "jack" };
@@ -44,5 +44,58 @@ describe("emitOutcomeToJudgeSink", () => {
     await expect(
       emitOutcomeToJudgeSink(emit, sink, { fetchImpl: fetchImpl as unknown as typeof fetch }),
     ).resolves.toBeUndefined();
+  });
+});
+
+describe("extractOutputText", () => {
+  it("joins non-empty payload texts", () => {
+    expect(extractOutputText({ payloads: [{ text: "a" }, { text: " " }, { text: "b" }] })).toBe("a\nb");
+  });
+  it("returns '' for missing/empty payloads", () => {
+    expect(extractOutputText(undefined)).toBe("");
+    expect(extractOutputText({ payloads: [] })).toBe("");
+    expect(extractOutputText({ payloads: [{ text: "" }] })).toBe("");
+  });
+});
+
+describe("maybeEmitOutcome", () => {
+  const sink = { url: "u", token: "t" };
+  const base = {
+    sink,
+    spawnedBy: undefined,
+    suppressOutcomeEmit: undefined,
+    agentId: "jack",
+    task: "do X",
+    result: { payloads: [{ text: "did X" }] },
+    runId: "run-1",
+  };
+  it("emits when all conditions are met", () => {
+    const emitImpl = vi.fn();
+    expect(maybeEmitOutcome(base, { emitImpl })).toBe(true);
+    expect(emitImpl).toHaveBeenCalledWith(
+      { task: "do X", output: "did X", runId: "run-1", agentId: "jack" },
+      sink,
+    );
+  });
+  it("skips when sink is undefined", () => {
+    const emitImpl = vi.fn();
+    expect(maybeEmitOutcome({ ...base, sink: undefined }, { emitImpl })).toBe(false);
+    expect(emitImpl).not.toHaveBeenCalled();
+  });
+  it("skips subagent runs (spawnedBy set)", () => {
+    const emitImpl = vi.fn();
+    expect(maybeEmitOutcome({ ...base, spawnedBy: "quinn" }, { emitImpl })).toBe(false);
+  });
+  it("skips suppressed (judge re-dispatch) runs", () => {
+    const emitImpl = vi.fn();
+    expect(maybeEmitOutcome({ ...base, suppressOutcomeEmit: true }, { emitImpl })).toBe(false);
+  });
+  it("skips when agentId missing", () => {
+    const emitImpl = vi.fn();
+    expect(maybeEmitOutcome({ ...base, agentId: undefined }, { emitImpl })).toBe(false);
+  });
+  it("skips when output text is empty", () => {
+    const emitImpl = vi.fn();
+    expect(maybeEmitOutcome({ ...base, result: { payloads: [] } }, { emitImpl })).toBe(false);
   });
 });
