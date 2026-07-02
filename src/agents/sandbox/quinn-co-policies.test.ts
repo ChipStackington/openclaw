@@ -33,6 +33,8 @@ describeLive("quinn-co seeded sandbox policies", () => {
 
   it("openclaw.json has sandbox enabled for non-main agents", () => {
     const j = JSON.parse(readFileSync(`${STATE}/openclaw.json`, "utf8"));
-    expect(j.tools?.sandbox?.mode).toBe("non-main");
+    // Sandbox lives under agents.defaults.sandbox (AgentSandboxSchema); the
+    // top-level tools.sandbox key is only a tool-policy wrapper in this version.
+    expect(j.agents?.defaults?.sandbox?.mode).toBe("non-main");
   });
 });
