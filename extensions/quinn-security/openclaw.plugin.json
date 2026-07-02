@@ -1,0 +1,5 @@
+{
+  "id": "quinn-security",
+  "name": "Quinn Security Gate",
+  "description": "Routes tool calls and outbound messages through the Quinn-Co security pipeline."
+}
