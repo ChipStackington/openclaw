@@ -2,5 +2,9 @@
   "name": "quinn-security",
   "version": "0.1.0",
   "type": "module",
-  "main": "index.ts"
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
 }

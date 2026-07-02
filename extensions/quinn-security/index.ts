@@ -1,4 +1,4 @@
-import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
+import type { OpenClawPluginApi } from "openclaw/plugin-sdk/core";
 import { bridgeEvaluate } from "./src/bridge.js";
 
 export default function register(api: OpenClawPluginApi) {
@@ -17,13 +17,19 @@ export default function register(api: OpenClawPluginApi) {
   });
 
   api.on("message_sending", async (event, ctx) => {
+    // PluginHookMessageContext carries no agentId (it's channel-scoped), so
+    // outbound gating is agent-agnostic in Phase 1 — evaluate against the
+    // channel/account instead of pretending we know the agent.
     const decision = await bridgeEvaluate(baseUrl, {
-      agentId: (ctx as any).agentId ?? "unknown",
+      agentId: ctx.accountId ?? ctx.channelId ?? "unknown",
       action: "message_sending",
       input: event.content,
       target: event.to,
     });
     if (!decision.allowed) {
+      api.logger?.warn?.(
+        `quinn-security cancelled an outbound message: ${decision.blockReason ?? "blocked by security pipeline"}`,
+      );
       return { cancel: true };
     }
     return undefined;
