@@ -38,10 +38,16 @@ export function toRoleTextPairs(
   messages: unknown[],
   maxChars = 24_000,
 ): Array<{ role: string; text: string }> {
+  // Core hands us the FULL session snapshot, not the turn delta, so once a
+  // session exceeds the char budget we must keep the NEWEST messages (tail)
+  // and drop/truncate the OLDEST ones — otherwise long-running sessions
+  // freeze on stale content and new facts never reach extraction. Walk the
+  // array backwards to prefer the tail, then reverse to restore chronology.
   const pairs: Array<{ role: string; text: string }> = [];
   let used = 0;
-  for (const raw of messages) {
+  for (let i = messages.length - 1; i >= 0; i--) {
     if (used >= maxChars) break;
+    const raw = messages[i];
     if (typeof raw !== "object" || raw === null) continue;
     const msg = raw as { role?: string; content?: unknown };
     if (msg.role !== "user" && msg.role !== "assistant") continue;
@@ -57,9 +63,10 @@ export function toRoleTextPairs(
     text = text.trim();
     if (!text) continue;
     const remaining = maxChars - used;
-    if (text.length > remaining) text = text.slice(0, remaining);
+    if (text.length > remaining) text = text.slice(text.length - remaining);
     used += text.length;
     pairs.push({ role: msg.role, text });
   }
+  pairs.reverse();
   return pairs;
 }

@@ -43,11 +43,38 @@ describe("toRoleTextPairs", () => {
       { role: "assistant", text: "block text" },
     ]);
   });
-  it("truncates head-preserving at the cap", () => {
+  it("truncates tail-preserving at the cap: newest message survives whole, oldest is trimmed from its front", () => {
     const messages = [{ role: "user", content: "a".repeat(500) }, { role: "user", content: "b".repeat(500) }];
     const pairs = toRoleTextPairs(messages, 600);
     const total = pairs.reduce((n, p) => n + p.text.length, 0);
     expect(total).toBeLessThanOrEqual(600);
-    expect(pairs[0]!.text.startsWith("aaa")).toBe(true);
+    // chronological order preserved: oldest (trimmed "a"s) first, newest ("b"s, whole) last.
+    expect(pairs[pairs.length - 1]!.text).toBe("b".repeat(500));
+    expect(pairs[0]!.text.endsWith("aaa")).toBe(true);
+    expect(pairs[0]!.text.length).toBe(100);
+  });
+
+  it("drops the oldest message entirely once the newest alone fills the budget", () => {
+    // Both messages are exactly 500 chars so the newest fits whole and
+    // consumes the entire budget, leaving nothing for the oldest.
+    const messages = [
+      { role: "user", content: "OLDEST-".padEnd(500, "x") },
+      { role: "assistant", content: "NEWEST-".padEnd(500, "y") },
+    ];
+    const pairs = toRoleTextPairs(messages, 500);
+    expect(pairs).toHaveLength(1);
+    expect(pairs[0]!.text).toContain("NEWEST");
+    expect(pairs.some((p) => p.text.includes("OLDEST"))).toBe(false);
+  });
+
+  it("preserves chronological order across many messages once truncated to the tail", () => {
+    // Each message is exactly 200 chars; a 400-char budget fits exactly the
+    // newest two whole, and the loop stops before touching older ones.
+    const messages = Array.from({ length: 5 }, (_, i) => ({
+      role: i % 2 === 0 ? "user" : "assistant",
+      content: `msg${i}-` + "z".repeat(195),
+    }));
+    const pairs = toRoleTextPairs(messages, 400);
+    expect(pairs.map((p) => p.text.split("-")[0])).toEqual(["msg3", "msg4"]);
   });
 });
