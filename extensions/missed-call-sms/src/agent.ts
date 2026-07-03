@@ -2,14 +2,14 @@
  * Missed-Call-to-SMS — Claude agent engine.
  *
  * Drives an SMS conversation with a caller after their voicemail is
- * transcribed. Direct fetch against the Anthropic Messages API — no
- * SDK dep, matching the lean-deps philosophy of this extension.
+ * transcribed. Completions run through the core's embedded pi-agent (Codex
+ * OAuth) via src/llm.ts — this plugin holds no LLM credentials of its own.
  *
  * Single-turn loop per inbound SMS:
  *   1. Caller sends SMS (or voicemail just landed)
  *   2. Build system prompt from business config (name, hours, FAQ, booking URL)
  *   3. Build conversation history from store messages
- *   4. Call Claude with the conversation
+ *   4. Call the injected completer with the conversation
  *   5. Parse the response for [ESCALATE] / [CLOSE] / [SEND] markers
  *   6. Send the SMS, append to store, update conversation status
  *
@@ -18,18 +18,17 @@
  */
 
 import type { MissedCallSmsConfig } from "./config.js";
+import type { SmsLlmComplete } from "./llm.js";
 import type { RuntimeLogger } from "./runtime.js";
-import type { Conversation, ConversationMessage, MissedCallSmsStore } from "./store.js";
+import type { Conversation, MissedCallSmsStore } from "./store.js";
 import type { TelnyxMessagingClient } from "./telnyx-sms.js";
-
-const ANTHROPIC_API = "https://api.anthropic.com/v1/messages";
-const ANTHROPIC_VERSION = "2023-06-01";
 
 export interface AgentEngineOptions {
   config: MissedCallSmsConfig;
   store: MissedCallSmsStore;
   telnyxSms: TelnyxMessagingClient;
   logger: RuntimeLogger;
+  llmComplete: SmsLlmComplete;
 }
 
 export interface AgentTurnResult {
@@ -46,12 +45,14 @@ export class AgentEngine {
   private readonly store: MissedCallSmsStore;
   private readonly telnyxSms: TelnyxMessagingClient;
   private readonly logger: RuntimeLogger;
+  private readonly llmComplete: SmsLlmComplete;
 
   constructor(opts: AgentEngineOptions) {
     this.config = opts.config;
     this.store = opts.store;
     this.telnyxSms = opts.telnyxSms;
     this.logger = opts.logger;
+    this.llmComplete = opts.llmComplete;
   }
 
   /**
@@ -126,9 +127,15 @@ export class AgentEngine {
 
   private async runTurn(convo: Conversation, isFirstTurn: boolean): Promise<AgentTurnResult> {
     try {
-      const systemPrompt = this.buildSystemPrompt(isFirstTurn);
-      const messages = this.buildMessages(convo, isFirstTurn);
-      const llmReply = await this.callClaude(systemPrompt, messages);
+      const parts = this.buildPromptParts(convo, isFirstTurn);
+      const systemPrompt =
+        this.buildSystemPrompt(isFirstTurn) +
+        (parts.historyBlock ? `\n\nConversation so far:\n${parts.historyBlock}` : "");
+      const llmReply = await this.llmComplete({
+        systemPrompt,
+        prompt: parts.prompt,
+        callerPhone: convo.callerPhone,
+      });
       const parsed = this.parseAgentReply(llmReply);
 
       if (parsed.escalate) {
@@ -198,72 +205,46 @@ You MUST format your reply as ONE of these three options:
 Do not output anything outside the marker. Do not include quotes around the body.`;
   }
 
-  private buildMessages(
+  /**
+   * Split the conversation into (latest prompt, history block). The pi-agent
+   * completer takes a single prompt + system prompt; prior turns are rendered
+   * as a transcript in the system prompt — same approach as voice-call.
+   */
+  private buildPromptParts(
     convo: Conversation,
     isFirstTurn: boolean,
-  ): Array<{ role: "user" | "assistant"; content: string }> {
-    const out: Array<{ role: "user" | "assistant"; content: string }> = [];
-
-    if (isFirstTurn && convo.voicemail?.transcript) {
-      out.push({
-        role: "user",
-        content: `[VOICEMAIL TRANSCRIPT from ${convo.callerPhone}, confidence ${(
-          convo.voicemail.transcriptConfidence ?? 0
-        ).toFixed(2)}]:\n\n"${convo.voicemail.transcript}"`,
-      });
-      return out;
+  ): { prompt: string; historyBlock?: string } {
+    if (isFirstTurn) {
+      const transcript = convo.voicemail?.transcript ?? "";
+      return {
+        prompt: `[VOICEMAIL TRANSCRIPT from ${convo.callerPhone}, confidence ${(
+          convo.voicemail?.transcriptConfidence ?? 0
+        ).toFixed(2)}]:\n\n"${transcript}"`,
+      };
     }
 
-    // Replay history. The voicemail (if present) becomes the first user
-    // message; subsequent caller/agent SMS turns alternate.
+    const lines: string[] = [];
     if (convo.voicemail?.transcript) {
-      out.push({
-        role: "user",
-        content: `[VOICEMAIL]: "${convo.voicemail.transcript}"`,
-      });
+      lines.push(`[VOICEMAIL]: "${convo.voicemail.transcript}"`);
     }
-    for (const msg of convo.messages) {
-      if (msg.role === "caller") {
-        out.push({ role: "user", content: msg.content });
-      } else if (msg.role === "agent") {
-        // Wrap prior agent SMS as assistant turns. We re-add the [SEND]
-        // marker so the model stays in format.
-        out.push({ role: "assistant", content: `[SEND] ${msg.content}` });
+    // All messages except the LAST caller message become history; the last
+    // caller message is the prompt. human-owner messages stay excluded.
+    let lastCallerIdx = -1;
+    for (let i = convo.messages.length - 1; i >= 0; i--) {
+      if (convo.messages[i]!.role === "caller") {
+        lastCallerIdx = i;
+        break;
       }
-      // human-owner messages are skipped from the LLM context — when a
-      // human takes over, the agent should be silent anyway.
     }
-    return out;
-  }
-
-  private async callClaude(
-    system: string,
-    messages: Array<{ role: "user" | "assistant"; content: string }>,
-  ): Promise<string> {
-    const resp = await fetch(ANTHROPIC_API, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": this.config.anthropic.apiKey!,
-        "anthropic-version": ANTHROPIC_VERSION,
-      },
-      body: JSON.stringify({
-        model: this.config.anthropic.model,
-        max_tokens: 400,
-        system,
-        messages,
-      }),
-      signal: AbortSignal.timeout(30000),
-    });
-    if (!resp.ok) {
-      const text = await resp.text().catch(() => "");
-      throw new Error(`anthropic call failed: ${resp.status} ${resp.statusText} ${text}`);
+    for (let i = 0; i < convo.messages.length; i++) {
+      const msg = convo.messages[i]!;
+      if (i === lastCallerIdx) continue;
+      if (msg.role === "caller") lines.push(`Caller: ${msg.content}`);
+      else if (msg.role === "agent") lines.push(`You (sent): ${msg.content}`);
     }
-    const json = (await resp.json()) as {
-      content?: Array<{ type: string; text?: string }>;
-    };
-    const text = json.content?.find((c) => c.type === "text")?.text ?? "";
-    return text.trim();
+    const prompt =
+      lastCallerIdx >= 0 ? convo.messages[lastCallerIdx]!.content : "(no new caller message)";
+    return { prompt, historyBlock: lines.length ? lines.join("\n") : undefined };
   }
 
   private parseAgentReply(raw: string): {
