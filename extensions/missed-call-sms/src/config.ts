@@ -123,6 +123,15 @@ export const WebhookConfigSchema = z
   .strict();
 export type WebhookConfig = z.infer<typeof WebhookConfigSchema>;
 
+export const LlmConfigSchema = z
+  .object({
+    /** Core modelRef "provider/model". Resolved + authed by the core's
+     *  embedded pi-agent (Codex OAuth) — no API key in this plugin. */
+    modelRef: z.string().default("openai-codex/gpt-5.4"),
+  })
+  .strict();
+export type LlmConfig = z.infer<typeof LlmConfigSchema>;
+
 export const MissedCallSmsConfigSchema = z
   .object({
     enabled: z.boolean().default(true),
@@ -135,6 +144,7 @@ export const MissedCallSmsConfigSchema = z
     }),
     telnyx: TelnyxConfigSchema.default({}),
     deepgram: DeepgramConfigSchema.default({ model: "nova-3" }),
+    llm: LlmConfigSchema.default({ modelRef: "openai-codex/gpt-5.4" }),
     anthropic: AnthropicConfigSchema.default({
       model: "claude-haiku-4-5-20251001",
     }),
@@ -195,7 +205,6 @@ export function validateProviderConfig(config: MissedCallSmsConfig): ProviderVal
     errors.push("telnyx.messagingProfileId is required for SMS");
   }
   if (!config.deepgram.apiKey) errors.push("deepgram.apiKey is required");
-  if (!config.anthropic.apiKey) errors.push("anthropic.apiKey is required");
   return { valid: errors.length === 0, errors };
 }
 
