@@ -17,6 +17,7 @@ import {
   validateProviderConfig,
   type MissedCallSmsConfig,
 } from "./src/config.js";
+import type { CoreConfig } from "./src/core-bridge.js";
 import { createMissedCallSmsRuntime, type MissedCallSmsRuntime } from "./src/runtime.js";
 
 const configSchema = {
@@ -92,6 +93,7 @@ const missedCallSmsPlugin = {
       if (!runtimePromise) {
         runtimePromise = createMissedCallSmsRuntime({
           config,
+          coreConfig: api.config as CoreConfig,
           logger: api.logger,
         });
       }

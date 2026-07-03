@@ -11,6 +11,8 @@
 
 import { AgentEngine } from "./agent.js";
 import type { MissedCallSmsConfig } from "./config.js";
+import type { CoreConfig } from "./core-bridge.js";
+import { createPiAgentCompleter, type SmsLlmComplete } from "./llm.js";
 import { MissedCallSmsStore } from "./store.js";
 import { TelnyxCallsClient } from "./telnyx-calls.js";
 import { TelnyxMessagingClient } from "./telnyx-sms.js";
@@ -38,13 +40,16 @@ export interface MissedCallSmsRuntime {
 
 export interface CreateRuntimeOptions {
   config: MissedCallSmsConfig;
+  coreConfig: CoreConfig;
   logger: RuntimeLogger;
+  /** Test seam — production uses the pi-agent completer. */
+  llmComplete?: SmsLlmComplete;
 }
 
 export async function createMissedCallSmsRuntime(
   opts: CreateRuntimeOptions,
 ): Promise<MissedCallSmsRuntime> {
-  const { config, logger } = opts;
+  const { config, coreConfig, logger } = opts;
 
   const store = new MissedCallSmsStore(config.store.path);
   await store.init();
@@ -66,6 +71,9 @@ export async function createMissedCallSmsRuntime(
     store,
     telnyxSms,
     logger,
+    llmComplete:
+      opts.llmComplete ??
+      createPiAgentCompleter({ modelRef: config.llm.modelRef, coreConfig }),
   });
 
   let webhookServer: WebhookServer | null = null;
