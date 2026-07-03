@@ -1,0 +1,6 @@
+{
+  "id": "quinn-memory",
+  "name": "Quinn Live Memory",
+  "description": "Injects relevant Quinn-Co memories into agent runs and extracts new ones from completed turns via the dashboard memory bridge.",
+  "configSchema": { "type": "object", "additionalProperties": false, "properties": {} }
+}
