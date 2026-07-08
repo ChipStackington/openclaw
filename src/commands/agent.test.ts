@@ -8,6 +8,8 @@ import { FailoverError } from "../agents/failover-error.js";
 import { loadModelCatalog } from "../agents/model-catalog.js";
 import * as modelSelectionModule from "../agents/model-selection.js";
 import { runEmbeddedPiAgent } from "../agents/pi-embedded.js";
+import { buildWorkspaceSkillSnapshot } from "../agents/skills.js";
+import { getSkillsSnapshotVersion } from "../agents/skills/refresh.js";
 import * as commandSecretGatewayModule from "../cli/command-secret-gateway.js";
 import type { OpenClawConfig } from "../config/config.js";
 import * as configModule from "../config/config.js";
@@ -40,6 +42,7 @@ vi.mock("../agents/skills.js", () => ({
 }));
 
 vi.mock("../agents/skills/refresh.js", () => ({
+  ensureSkillsWatcher: vi.fn(),
   getSkillsSnapshotVersion: vi.fn(() => 0),
 }));
 
@@ -434,6 +437,40 @@ describe("agentCommand", () => {
 
       const callArgs = vi.mocked(runEmbeddedPiAgent).mock.calls.at(-1)?.[0];
       expect(callArgs?.sessionId).toBe("session-123");
+    });
+  });
+
+  it("rebuilds a stale skills snapshot when resuming an existing session", async () => {
+    await withTempHome(async (home) => {
+      const store = path.join(home, "sessions.json");
+      writeSessionStoreSeed(store, {
+        foo: {
+          sessionId: "session-123",
+          updatedAt: Date.now(),
+          systemSent: true,
+          skillsSnapshot: { prompt: "stale", skills: [], version: 1 },
+        },
+      });
+      mockConfig(home, store);
+      // Workspace skills changed since the session snapshot was persisted (version 1 -> 50).
+      vi.mocked(getSkillsSnapshotVersion).mockReturnValue(50);
+      vi.mocked(buildWorkspaceSkillSnapshot).mockReturnValue({
+        prompt: "fresh",
+        skills: [],
+        version: 50,
+      } as never);
+      try {
+        await agentCommand({ message: "hi", sessionKey: "foo" }, runtime);
+
+        expect(vi.mocked(buildWorkspaceSkillSnapshot)).toHaveBeenCalled();
+        expect(getLastEmbeddedCall()?.skillsSnapshot?.version).toBe(50);
+        const saved = readSessionStore<{ skillsSnapshot?: { version?: number } }>(store);
+        expect(saved.foo?.skillsSnapshot?.version).toBe(50);
+      } finally {
+        // Restore the module-level factory defaults so later tests see them.
+        vi.mocked(getSkillsSnapshotVersion).mockReturnValue(0);
+        vi.mocked(buildWorkspaceSkillSnapshot).mockReturnValue(undefined as never);
+      }
     });
   });
 
