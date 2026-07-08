@@ -27,17 +27,16 @@ describe("ensureSkillsWatcher", () => {
 
     expect(opts.ignored).toBe(mod.DEFAULT_SKILLS_WATCH_IGNORED);
     const posix = (p: string) => p.replaceAll("\\", "/");
+    // chokidar v4+ has no glob support: targets must be literal directories
+    // (SKILL.md filtering happens in the event handlers).
     expect(targets).toEqual(
       expect.arrayContaining([
-        posix(path.join("/tmp/workspace", "skills", "SKILL.md")),
-        posix(path.join("/tmp/workspace", "skills", "*", "SKILL.md")),
-        posix(path.join("/tmp/workspace", ".agents", "skills", "SKILL.md")),
-        posix(path.join("/tmp/workspace", ".agents", "skills", "*", "SKILL.md")),
-        posix(path.join(os.homedir(), ".agents", "skills", "SKILL.md")),
-        posix(path.join(os.homedir(), ".agents", "skills", "*", "SKILL.md")),
+        posix(path.join("/tmp/workspace", "skills")),
+        posix(path.join("/tmp/workspace", ".agents", "skills")),
+        posix(path.join(os.homedir(), ".agents", "skills")),
       ]),
     );
-    expect(targets.every((target) => target.includes("SKILL.md"))).toBe(true);
+    expect(targets.some((target) => target.includes("*"))).toBe(false);
     const ignored = mod.DEFAULT_SKILLS_WATCH_IGNORED;
 
     // Node/JS paths
