@@ -302,6 +302,7 @@ describe("isModernModelRef", () => {
     expect(isModernModelRef({ provider: "openai", id: "gpt-5.4" })).toBe(true);
     expect(isModernModelRef({ provider: "openai", id: "gpt-5.4-pro" })).toBe(true);
     expect(isModernModelRef({ provider: "openai-codex", id: "gpt-5.5" })).toBe(true);
+    expect(isModernModelRef({ provider: "openai-codex", id: "gpt-5.6-terra" })).toBe(true);
     expect(isModernModelRef({ provider: "openai-codex", id: "gpt-5.4" })).toBe(true);
   });
 
@@ -374,6 +375,17 @@ describe("resolveForwardCompatModel", () => {
     });
     const model = resolveForwardCompatModel("openai-codex", "gpt-5.5", registry);
     expectResolvedForwardCompat(model, { provider: "openai-codex", id: "gpt-5.5" });
+    expect(model?.api).toBe("openai-codex-responses");
+    expect(model?.baseUrl).toBe("https://chatgpt.com/backend-api");
+    expect(model?.reasoning).toBe(true);
+  });
+
+  it("resolves openai-codex gpt-5.6-terra via codex template fallback", () => {
+    const registry = createRegistry({
+      "openai-codex/gpt-5.4": createOpenAICodexTemplateModel("gpt-5.4"),
+    });
+    const model = resolveForwardCompatModel("openai-codex", "gpt-5.6-terra", registry);
+    expectResolvedForwardCompat(model, { provider: "openai-codex", id: "gpt-5.6-terra" });
     expect(model?.api).toBe("openai-codex-responses");
     expect(model?.baseUrl).toBe("https://chatgpt.com/backend-api");
     expect(model?.reasoning).toBe(true);

@@ -39,6 +39,7 @@ const OPENAI_GPT54_PRO_MODEL_ID = "gpt-5.4-pro";
 const OPENAI_CODEX_GPT53_MODEL_ID = "gpt-5.3-codex";
 const OPENAI_CODEX_GPT53_SPARK_MODEL_ID = "gpt-5.3-codex-spark";
 const OPENAI_CODEX_GPT55_MODEL_ID = "gpt-5.5";
+const OPENAI_CODEX_GPT56_TERRA_MODEL_ID = "gpt-5.6-terra";
 const OPENAI_CODEX_GPT54_MODEL_ID = "gpt-5.4";
 const NON_PI_NATIVE_MODEL_PROVIDERS = new Set(["kilocode"]);
 
@@ -63,6 +64,11 @@ const SYNTHETIC_CATALOG_FALLBACKS: readonly SyntheticCatalogFallback[] = [
     provider: CODEX_PROVIDER,
     id: OPENAI_CODEX_GPT55_MODEL_ID,
     templateIds: ["gpt-5.4", "gpt-5.3-codex", "gpt-5.2-codex"],
+  },
+  {
+    provider: CODEX_PROVIDER,
+    id: OPENAI_CODEX_GPT56_TERRA_MODEL_ID,
+    templateIds: [OPENAI_CODEX_GPT55_MODEL_ID, "gpt-5.4", "gpt-5.3-codex", "gpt-5.2-codex"],
   },
   {
     provider: CODEX_PROVIDER,

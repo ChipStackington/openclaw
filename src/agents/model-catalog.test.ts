@@ -172,6 +172,13 @@ describe("loadModelCatalog", () => {
         name: "gpt-5.5",
       }),
     );
+    expect(result).toContainEqual(
+      expect.objectContaining({
+        provider: "openai-codex",
+        id: "gpt-5.6-terra",
+        name: "gpt-5.6-terra",
+      }),
+    );
   });
 
   it("merges configured models for opted-in non-pi-native providers", async () => {
