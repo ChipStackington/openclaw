@@ -554,6 +554,37 @@ export async function loadWorkspaceBootstrapFiles(dir: string): Promise<Workspac
   return result;
 }
 
+/**
+ * Cheap stat-only fingerprint of every bootstrap candidate file. Used by the
+ * per-session bootstrap snapshot to detect on-disk edits without re-reading
+ * content (content reads stay behind the mtime-keyed workspaceFileCache).
+ */
+export async function computeWorkspaceBootstrapVersion(dir: string): Promise<string> {
+  const resolvedDir = resolveUserPath(dir);
+  const candidateNames: WorkspaceBootstrapFileName[] = [
+    DEFAULT_AGENTS_FILENAME,
+    DEFAULT_SOUL_FILENAME,
+    DEFAULT_TOOLS_FILENAME,
+    DEFAULT_IDENTITY_FILENAME,
+    DEFAULT_USER_FILENAME,
+    DEFAULT_HEARTBEAT_FILENAME,
+    DEFAULT_BOOTSTRAP_FILENAME,
+    DEFAULT_MEMORY_FILENAME,
+    DEFAULT_MEMORY_ALT_FILENAME,
+  ];
+  const parts: string[] = [];
+  for (const name of candidateNames) {
+    const filePath = path.join(resolvedDir, name);
+    try {
+      const stat = await fs.stat(filePath);
+      parts.push(`${name}:${stat.size}:${stat.mtimeMs}`);
+    } catch {
+      parts.push(`${name}:missing`);
+    }
+  }
+  return parts.join("|");
+}
+
 const MINIMAL_BOOTSTRAP_ALLOWLIST = new Set([
   DEFAULT_AGENTS_FILENAME,
   DEFAULT_TOOLS_FILENAME,

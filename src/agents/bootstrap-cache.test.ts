@@ -8,11 +8,13 @@ import type { WorkspaceBootstrapFile } from "./workspace.js";
 
 vi.mock("./workspace.js", () => ({
   loadWorkspaceBootstrapFiles: vi.fn(),
+  computeWorkspaceBootstrapVersion: vi.fn(),
 }));
 
-import { loadWorkspaceBootstrapFiles } from "./workspace.js";
+import { computeWorkspaceBootstrapVersion, loadWorkspaceBootstrapFiles } from "./workspace.js";
 
 const mockLoad = vi.mocked(loadWorkspaceBootstrapFiles);
+const mockVersion = vi.mocked(computeWorkspaceBootstrapVersion);
 
 function makeFile(name: string, content: string): WorkspaceBootstrapFile {
   return {
@@ -29,6 +31,7 @@ describe("getOrLoadBootstrapFiles", () => {
   beforeEach(() => {
     clearAllBootstrapSnapshots();
     mockLoad.mockResolvedValue(files);
+    mockVersion.mockResolvedValue("v1");
   });
 
   afterEach(() => {
@@ -54,6 +57,19 @@ describe("getOrLoadBootstrapFiles", () => {
     expect(mockLoad).toHaveBeenCalledTimes(1);
   });
 
+  it("reloads when the workspace bootstrap version changes", async () => {
+    const files2 = [makeFile("AGENTS.md", "# Agent v2")];
+    mockLoad.mockResolvedValueOnce(files).mockResolvedValueOnce(files2);
+    mockVersion.mockResolvedValueOnce("v1").mockResolvedValueOnce("v2");
+
+    const r1 = await getOrLoadBootstrapFiles({ workspaceDir: "/ws", sessionKey: "session-1" });
+    const r2 = await getOrLoadBootstrapFiles({ workspaceDir: "/ws", sessionKey: "session-1" });
+
+    expect(r1).toBe(files);
+    expect(r2).toBe(files2);
+    expect(mockLoad).toHaveBeenCalledTimes(2);
+  });
+
   it("different session keys get independent caches", async () => {
     const files2 = [makeFile("AGENTS.md", "# Agent v2")];
     mockLoad.mockResolvedValueOnce(files).mockResolvedValueOnce(files2);
@@ -71,6 +87,7 @@ describe("clearBootstrapSnapshot", () => {
   beforeEach(() => {
     clearAllBootstrapSnapshots();
     mockLoad.mockResolvedValue([makeFile("AGENTS.md", "content")]);
+    mockVersion.mockResolvedValue("v1");
   });
 
   afterEach(() => {
