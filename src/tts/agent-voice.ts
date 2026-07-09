@@ -24,7 +24,7 @@ export type CartesiaVoiceEntry = {
   gender: AgentGender;
 };
 
-// Female voices (15 available)
+// Female voices (19 available)
 export const CARTESIA_FEMALE_VOICES: CartesiaVoiceEntry[] = [
   { id: "dc30854e-e398-4579-9dc8-16f6cb2c19b9", label: "Victoria — Refined Coordinator", gender: "female" },
   { id: "e07c00bc-4134-4eae-9ea4-1a55fb45746b", label: "Brooke — Big Sister", gender: "female" },
@@ -41,9 +41,13 @@ export const CARTESIA_FEMALE_VOICES: CartesiaVoiceEntry[] = [
   { id: "d1d9c946-7cfc-4378-85a4-07d09827cb7e", label: "Jolene — Warm Storyteller", gender: "female" },
   { id: "0ee8beaa-db49-4024-940d-c7ea09b590b3", label: "Morgan — Executive Expert", gender: "female" },
   { id: "692846ad-1a6b-49b8-bfc5-86421fd41a19", label: "Thandi — Direct Dispatcher", gender: "female" },
+  { id: "25d7abcb-4d6d-4aca-adce-8a1c85620c8b", label: "Jessica — Clear Communicator", gender: "female" },
+  { id: "7348f896-8516-4382-9c8f-ad2aee1ffedc", label: "Naledi — Engaging Instructor", gender: "female" },
+  { id: "273f9ef7-9fc2-4def-88bb-ab108c6249ca", label: "Julia — Gentle Guide", gender: "female" },
+  { id: "391f4c0a-f1a8-4c21-9aa2-7a07f0a4b0dc", label: "Bronte — Trusted Guide", gender: "female" },
 ];
 
-// Male voices (13 available)
+// Male voices (16 available)
 export const CARTESIA_MALE_VOICES: CartesiaVoiceEntry[] = [
   { id: "ee7ea9f8-c0c1-498c-9279-764d6b56d189", label: "Oliver — Customer Chap", gender: "male" },
   { id: "a167e0f3-df7e-4d52-a9c3-f949145efdab", label: "Blake — Helpful Agent", gender: "male" },
@@ -58,6 +62,9 @@ export const CARTESIA_MALE_VOICES: CartesiaVoiceEntry[] = [
   { id: "47c38ca4-5f35-497b-b1a3-415245fb35e1", label: "Daniel — Modern Assistant", gender: "male" },
   { id: "3e39e9a5-585c-4f5f-bac6-5e4905c51095", label: "Cole — Clear Communicator", gender: "male" },
   { id: "baf84392-fa95-4d44-8871-d32ee36b0e01", label: "Pieter — Polished Analyst", gender: "male" },
+  { id: "b24f41fd-00a3-4cd8-992a-a0c9f13f3ef1", label: "Clive — Measured Expert", gender: "male" },
+  { id: "49743b08-0f5d-4741-839c-b12933853780", label: "Cooper — Friendly Mate", gender: "male" },
+  { id: "65209f8e-6140-4a20-b819-3cc2e21da19b", label: "Nolan — Expressive Agent", gender: "male" },
 ];
 
 // ── Default Voice Assignments (unique per agent) ────────────────────
@@ -106,6 +113,15 @@ const AGENT_VOICE_MAP: Record<string, { voiceId: string; gender: AgentGender }> 
   jared:  { voiceId: "79f8b5fb-2cc8-479a-80df-29f7a7cf1a3e", gender: "male" },   // Theo (shared w/ josh)
   steve:  { voiceId: "47c38ca4-5f35-497b-b1a3-415245fb35e1", gender: "male" },   // Daniel (shared w/ dean)
   mark:   { voiceId: "4bc3cb8c-adb9-4bb8-b5d5-cbbef950b991", gender: "male" },   // George (shared w/ jim)
+
+  // Commerce department (added 2026-07-09; genders per Agent Photos)
+  reese:  { voiceId: "25d7abcb-4d6d-4aca-adce-8a1c85620c8b", gender: "female" }, // Jessica — Trend Scout, data-blunt
+  iris:   { voiceId: "7348f896-8516-4382-9c8f-ad2aee1ffedc", gender: "female" }, // Naledi — Art Director, engaging
+  otto:   { voiceId: "b24f41fd-00a3-4cd8-992a-a0c9f13f3ef1", gender: "male" },   // Clive — Product Packager, precise
+  wren:   { voiceId: "273f9ef7-9fc2-4def-88bb-ab108c6249ca", gender: "female" }, // Julia — Listing Writer, polished
+  piper:  { voiceId: "391f4c0a-f1a8-4c21-9aa2-7a07f0a4b0dc", gender: "female" }, // Bronte — Publisher, trusted
+  remy:   { voiceId: "49743b08-0f5d-4741-839c-b12933853780", gender: "male" },   // Cooper — Comms Drafter, customer-warm
+  nolan:  { voiceId: "65209f8e-6140-4a20-b819-3cc2e21da19b", gender: "male" },   // Nolan — Store Analyst (library name match)
 };
 
 // ── Public API ──────────────────────────────────────────────────────
