@@ -24,6 +24,7 @@ const OPENAI_CODEX_GPT_55_TEMPLATE_MODEL_IDS = [
   "gpt-5.2-codex",
 ] as const;
 const OPENAI_CODEX_GPT_56_TERRA_MODEL_ID = "gpt-5.6-terra";
+const OPENAI_CODEX_GPT_56_SOL_MODEL_ID = "gpt-5.6-sol";
 const OPENAI_CODEX_GPT_56_TERRA_TEMPLATE_MODEL_IDS = [
   "gpt-5.5",
   "gpt-5.4",
@@ -141,7 +142,7 @@ function resolveOpenAICodexForwardCompatModel(
   let templateIds: readonly string[];
   let eligibleProviders: Set<string>;
   let patch: Partial<Model<Api>> | undefined;
-  if (lower === OPENAI_CODEX_GPT_56_TERRA_MODEL_ID) {
+  if (lower === OPENAI_CODEX_GPT_56_TERRA_MODEL_ID || lower === OPENAI_CODEX_GPT_56_SOL_MODEL_ID) {
     templateIds = OPENAI_CODEX_GPT_56_TERRA_TEMPLATE_MODEL_IDS;
     eligibleProviders = CODEX_GPT54_ELIGIBLE_PROVIDERS;
     patch = {
