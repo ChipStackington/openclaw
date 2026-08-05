@@ -48,6 +48,7 @@ type SettingsHost = {
   sessionKey: string;
   tab: Tab;
   embedMode: boolean;
+  embedUserName: string;
   connected: boolean;
   voiceEnabled: boolean;
   chatHasAutoScrolled: boolean;
@@ -153,6 +154,11 @@ export function applySettingsFromUrl(host: SettingsHost) {
   if (embedRaw != null) {
     const embed = embedRaw.trim().toLowerCase();
     host.embedMode = embed === "mc" || embed === "mission-control" || embed === "1";
+  }
+
+  const embedUserRaw = params.get("user") ?? hashParams.get("user");
+  if (embedUserRaw != null) {
+    host.embedUserName = embedUserRaw.trim().slice(0, 80);
   }
 
   if (gatewayUrlRaw != null) {

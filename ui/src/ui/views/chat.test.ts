@@ -384,11 +384,20 @@ describe("chat view", () => {
       renderChat(
         createProps({
           clientMode: true,
-          messages: [{ role: "user", content: "hello", timestamp: 1000 }],
+          clientUserName: "Jared",
+          messages: [
+            {
+              role: "user",
+              content: "hello",
+              senderLabel: "openclaw-control-ui",
+              timestamp: 1000,
+            },
+          ],
         }),
       ),
       container,
     );
-    expect(container.querySelector(".chat-group.user .chat-sender-name")?.textContent).toBe("You");
+    expect(container.querySelector(".chat-group.user .chat-sender-name")?.textContent).toBe("Jared");
+    expect(container.textContent).not.toContain("openclaw-control-ui");
   });
 });

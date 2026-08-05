@@ -37,6 +37,7 @@ export type ChatProps = {
   thinkingLevel: string | null;
   showThinking: boolean;
   clientMode?: boolean;
+  clientUserName?: string;
   activeRun?: boolean;
   activityLabel?: string;
   loading: boolean;
@@ -534,7 +535,11 @@ function isClientDiagnosticMessage(message: unknown): boolean {
   });
 }
 
-function groupMessages(items: ChatItem[]): Array<ChatItem | MessageGroup> {
+function groupMessages(
+  items: ChatItem[],
+  clientMode = false,
+  clientUserName?: string,
+): Array<ChatItem | MessageGroup> {
   const result: Array<ChatItem | MessageGroup> = [];
   let currentGroup: MessageGroup | null = null;
 
@@ -550,7 +555,12 @@ function groupMessages(items: ChatItem[]): Array<ChatItem | MessageGroup> {
 
     const normalized = normalizeMessage(item.message);
     const role = normalizeRoleForGrouping(normalized.role);
-    const senderLabel = role.toLowerCase() === "user" ? (normalized.senderLabel ?? null) : null;
+    const senderLabel =
+      role.toLowerCase() === "user"
+        ? clientMode
+          ? clientUserName?.trim() || "You"
+          : (normalized.senderLabel ?? null)
+        : null;
     const timestamp = normalized.timestamp || Date.now();
 
     if (
@@ -667,7 +677,7 @@ function buildChatItems(props: ChatProps): Array<ChatItem | MessageGroup> {
     }
   }
 
-  return groupMessages(items);
+  return groupMessages(items, props.clientMode, props.clientUserName);
 }
 
 function messageKey(message: unknown, index: number): string {

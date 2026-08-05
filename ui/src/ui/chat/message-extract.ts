@@ -11,7 +11,7 @@ function processMessageText(text: string, role: string): string {
     return stripThinkingTags(text);
   }
   return shouldStripInboundMetadata
-    ? stripInboundMetadata(stripEnvelope(text))
+    ? stripEnvelope(stripInboundMetadata(text))
     : stripEnvelope(text);
 }
 

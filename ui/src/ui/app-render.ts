@@ -1013,6 +1013,7 @@ export function renderApp(state: AppViewState) {
                 thinkingLevel: state.chatThinkingLevel,
                 showThinking,
                 clientMode: state.embedMode,
+                clientUserName: state.embedUserName,
                 activeRun: Boolean(state.chatRunId),
                 loading: state.chatLoading,
                 sending: state.chatSending,
