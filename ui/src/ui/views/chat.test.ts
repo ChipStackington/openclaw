@@ -311,4 +311,84 @@ describe("chat view", () => {
     expect(senderLabels).toContain("Iris");
     expect(senderLabels).toContain("Joaquin De Rojas");
   });
+
+  it("client mode keeps user and final assistant messages while hiding diagnostics", () => {
+    const container = document.createElement("div");
+    render(
+      renderChat(
+        createProps({
+          clientMode: true,
+          messages: [
+            { role: "user", content: "Book the next appointment", timestamp: 1000 },
+            {
+              role: "assistant",
+              toolCallId: "tool-1",
+              content: [{ type: "toolcall", name: "exec", arguments: {} }],
+              timestamp: 1001,
+            },
+            { role: "toolResult", content: "internal output", timestamp: 1002 },
+            { role: "assistant", content: "Booked for Wednesday at 9:00 AM.", timestamp: 1003 },
+          ],
+          toolMessages: [{ role: "assistant", toolCallId: "live-1", content: "live tool" }],
+          streamSegments: [{ text: "internal pre-tool narration", ts: 1002 }],
+        }),
+      ),
+      container,
+    );
+
+    expect(container.textContent).toContain("Book the next appointment");
+    expect(container.textContent).toContain("Booked for Wednesday at 9:00 AM.");
+    expect(container.textContent).not.toContain("internal output");
+    expect(container.textContent).not.toContain("live tool");
+    expect(container.textContent).not.toContain("internal pre-tool narration");
+  });
+
+  it("standard developer mode still renders live tool diagnostics", () => {
+    const container = document.createElement("div");
+    render(
+      renderChat(
+        createProps({
+          clientMode: false,
+          toolMessages: [{ role: "assistant", toolCallId: "live-1", content: "diagnostic output" }],
+        }),
+      ),
+      container,
+    );
+    expect(container.textContent).toContain("diagnostic output");
+  });
+
+  it("client mode renders a persistent accessible working state for the active run", () => {
+    const container = document.createElement("div");
+    render(
+      renderChat(createProps({ clientMode: true, activeRun: true, stream: "partial answer" })),
+      container,
+    );
+
+    const activity = container.querySelector(".quinn-activity");
+    expect(activity).not.toBeNull();
+    expect(activity?.getAttribute("role")).toBe("status");
+    expect(activity?.getAttribute("aria-live")).toBe("polite");
+    expect(activity?.textContent).toContain("Working on it");
+    expect(container.textContent).not.toContain("partial answer");
+  });
+
+  it("client working state clears when the run reaches a terminal state", () => {
+    const container = document.createElement("div");
+    render(renderChat(createProps({ clientMode: true, activeRun: false })), container);
+    expect(container.querySelector(".quinn-activity")).toBeNull();
+  });
+
+  it("client mode visibly labels the user's own message", () => {
+    const container = document.createElement("div");
+    render(
+      renderChat(
+        createProps({
+          clientMode: true,
+          messages: [{ role: "user", content: "hello", timestamp: 1000 }],
+        }),
+      ),
+      container,
+    );
+    expect(container.querySelector(".chat-group.user .chat-sender-name")?.textContent).toBe("You");
+  });
 });

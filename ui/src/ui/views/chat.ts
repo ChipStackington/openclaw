@@ -36,6 +36,9 @@ export type ChatProps = {
   onSessionKeyChange: (next: string) => void;
   thinkingLevel: string | null;
   showThinking: boolean;
+  clientMode?: boolean;
+  activeRun?: boolean;
+  activityLabel?: string;
   loading: boolean;
   sending: boolean;
   canAbort?: boolean;
@@ -318,6 +321,7 @@ export function renderChat(props: ChatProps) {
           return nothing;
         },
       )}
+      ${props.clientMode && props.activeRun ? renderClientActivity(props.activityLabel) : nothing}
     </div>
   `;
 
@@ -495,6 +499,41 @@ export function renderChat(props: ChatProps) {
 
 const CHAT_HISTORY_RENDER_LIMIT = 200;
 
+function renderClientActivity(label = "Working on it…") {
+  return html`
+    <div class="quinn-activity" role="status" aria-live="polite" aria-label=${label}>
+      <div class="quinn-activity__core" aria-hidden="true">
+        <span class="quinn-activity__orbit"></span>
+        <span class="quinn-activity__brain">${icons.brain}</span>
+        <span class="quinn-activity__charge quinn-activity__charge--one">${icons.zap}</span>
+        <span class="quinn-activity__charge quinn-activity__charge--two">${icons.zap}</span>
+      </div>
+      <span class="quinn-activity__label">${label}</span>
+    </div>
+  `;
+}
+
+function isClientDiagnosticMessage(message: unknown): boolean {
+  const raw = message as Record<string, unknown>;
+  const role = normalizeRoleForGrouping(normalizeMessage(message).role).toLowerCase();
+  if (role !== "user" && role !== "assistant") return true;
+  if (role === "user") return false;
+  if (
+    typeof raw.toolCallId === "string" ||
+    typeof raw.tool_call_id === "string" ||
+    (typeof raw.runId === "string" && raw.kind === "tool")
+  )
+    return true;
+  if (!Array.isArray(raw.content)) return false;
+  return raw.content.some((block) => {
+    if (!block || typeof block !== "object") return false;
+    const type = String((block as Record<string, unknown>).type ?? "").toLowerCase();
+    return (
+      type === "toolcall" || type === "tool_call" || type === "toolresult" || type === "tool_result"
+    );
+  });
+}
+
 function groupMessages(items: ChatItem[]): Array<ChatItem | MessageGroup> {
   const result: Array<ChatItem | MessageGroup> = [];
   let currentGroup: MessageGroup | null = null;
@@ -547,7 +586,7 @@ function buildChatItems(props: ChatProps): Array<ChatItem | MessageGroup> {
   const history = Array.isArray(props.messages) ? props.messages : [];
   const tools = Array.isArray(props.toolMessages) ? props.toolMessages : [];
   const historyStart = Math.max(0, history.length - CHAT_HISTORY_RENDER_LIMIT);
-  if (historyStart > 0) {
+  if (historyStart > 0 && !props.clientMode) {
     items.push({
       kind: "message",
       key: "chat:history:notice",
@@ -564,6 +603,7 @@ function buildChatItems(props: ChatProps): Array<ChatItem | MessageGroup> {
     const raw = msg as Record<string, unknown>;
     const marker = raw.__openclaw as Record<string, unknown> | undefined;
     if (marker && marker.kind === "compaction") {
+      if (props.clientMode) continue;
       items.push({
         kind: "divider",
         key:
@@ -576,7 +616,10 @@ function buildChatItems(props: ChatProps): Array<ChatItem | MessageGroup> {
       continue;
     }
 
-    if (!props.showThinking && normalized.role.toLowerCase() === "toolresult") {
+    if (
+      (props.clientMode && isClientDiagnosticMessage(msg)) ||
+      (!props.showThinking && normalized.role.toLowerCase() === "toolresult")
+    ) {
       continue;
     }
 
@@ -589,8 +632,9 @@ function buildChatItems(props: ChatProps): Array<ChatItem | MessageGroup> {
   // Interleave stream segments and tool cards in order. Each segment
   // contains text that was streaming before the corresponding tool started.
   // This ensures correct visual ordering: text → tool → text → tool → ...
-  const segments = props.streamSegments ?? [];
-  const maxLen = Math.max(segments.length, tools.length);
+  const segments = props.clientMode ? [] : (props.streamSegments ?? []);
+  const visibleTools = props.clientMode ? [] : tools;
+  const maxLen = Math.max(segments.length, visibleTools.length);
   for (let i = 0; i < maxLen; i++) {
     if (i < segments.length && segments[i].text.trim().length > 0) {
       items.push({
@@ -600,16 +644,16 @@ function buildChatItems(props: ChatProps): Array<ChatItem | MessageGroup> {
         startedAt: segments[i].ts,
       });
     }
-    if (i < tools.length) {
+    if (i < visibleTools.length) {
       items.push({
         kind: "message",
-        key: messageKey(tools[i], i + history.length),
-        message: tools[i],
+        key: messageKey(visibleTools[i], i + history.length),
+        message: visibleTools[i],
       });
     }
   }
 
-  if (props.stream !== null) {
+  if (props.stream !== null && !props.clientMode) {
     const key = `stream:${props.sessionKey}:${props.streamStartedAt ?? "live"}`;
     if (props.stream.trim().length > 0) {
       items.push({

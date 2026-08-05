@@ -3,7 +3,12 @@ import { parseAgentSessionKey } from "../../../src/routing/session-key.js";
 import { t } from "../i18n/index.ts";
 import { refreshChatAvatar } from "./app-chat.ts";
 import { renderUsageTab } from "./app-render-usage-tab.ts";
-import { renderChatControls, renderModelTierToggle, renderTab, renderThemeToggle } from "./app-render.helpers.ts";
+import {
+  renderChatControls,
+  renderModelTierToggle,
+  renderTab,
+  renderThemeToggle,
+} from "./app-render.helpers.ts";
 import type { AppViewState } from "./app-view-state.ts";
 import { loadAgentFileContent, loadAgentFiles, saveAgentFile } from "./controllers/agent-files.ts";
 import { loadAgentIdentities, loadAgentIdentity } from "./controllers/agent-identity.ts";
@@ -236,7 +241,10 @@ export function renderApp(state: AppViewState) {
 
   return html`
     <div class="shell ${isChat ? "shell--chat" : ""} ${chatFocus ? "shell--chat-focus" : ""} ${state.settings.navCollapsed ? "shell--nav-collapsed" : ""} ${state.onboarding ? "shell--onboarding" : ""} ${state.embedMode ? "shell--mc-embed" : ""}">
-      ${state.embedMode ? nothing : html`<header class="topbar">
+      ${
+        state.embedMode
+          ? nothing
+          : html`<header class="topbar">
         <div class="topbar-left">
           <button
             class="nav-collapse-toggle"
@@ -274,8 +282,12 @@ export function renderApp(state: AppViewState) {
           ${renderModelTierToggle(state)}
           ${renderThemeToggle(state)}
         </div>
-      </header>`}
-      ${state.embedMode ? nothing : html`<aside class="nav ${state.settings.navCollapsed ? "nav--collapsed" : ""}">
+      </header>`
+      }
+      ${
+        state.embedMode
+          ? nothing
+          : html`<aside class="nav ${state.settings.navCollapsed ? "nav--collapsed" : ""}">
         ${TAB_GROUPS.map((group) => {
           const isGroupCollapsed = state.settings.navGroupsCollapsed[group.label] ?? false;
           const hasActiveTab = group.tabs.some((tab) => tab === state.tab);
@@ -319,7 +331,8 @@ export function renderApp(state: AppViewState) {
             </a>
           </div>
         </div>
-      </aside>`}
+      </aside>`
+      }
       <main class="content ${isChat ? "content--chat" : ""}">
         ${
           availableUpdate
@@ -334,7 +347,10 @@ export function renderApp(state: AppViewState) {
             </div>`
             : nothing
         }
-        ${state.embedMode ? nothing : html`<section class="content-header">
+        ${
+          state.embedMode
+            ? nothing
+            : html`<section class="content-header">
           <div>
             ${state.tab === "usage" ? nothing : html`<div class="page-title">${titleForTab(state.tab)}</div>`}
             ${state.tab === "usage" ? nothing : html`<div class="page-sub">${subtitleForTab(state.tab)}</div>`}
@@ -343,7 +359,8 @@ export function renderApp(state: AppViewState) {
             ${state.lastError ? html`<div class="pill danger">${state.lastError}</div>` : nothing}
             ${isChat ? renderChatControls(state) : nothing}
           </div>
-        </section>`}
+        </section>`
+        }
 
         ${
           state.tab === "overview"
@@ -995,6 +1012,8 @@ export function renderApp(state: AppViewState) {
                 },
                 thinkingLevel: state.chatThinkingLevel,
                 showThinking,
+                clientMode: state.embedMode,
+                activeRun: Boolean(state.chatRunId),
                 loading: state.chatLoading,
                 sending: state.chatSending,
                 compactionStatus: state.compactionStatus,

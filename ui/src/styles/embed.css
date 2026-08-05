@@ -62,6 +62,7 @@
   background: rgba(8, 17, 33, 0.88);
   color: var(--chat-text);
   box-shadow: 0 12px 34px rgba(0, 0, 0, 0.24);
+  transition: none !important;
 }
 
 .shell--mc-embed .chat-text,
@@ -90,13 +91,156 @@
 }
 
 .shell--mc-embed .chat-group.user .chat-bubble {
-  border-color: rgba(10, 158, 252, 0.48);
-  background: rgba(10, 158, 252, 0.16);
-  color: #f7fbff;
+  border-color: rgba(10, 158, 252, 0.48) !important;
+  background: rgba(10, 158, 252, 0.16) !important;
+  color: #f7fbff !important;
 }
 
 .shell--mc-embed .chat-group.user .chat-sender-name {
-  display: none;
+  display: inline-flex;
+  color: #98d8f0;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}
+
+.shell--mc-embed .quinn-activity {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: max-content;
+  max-width: min(280px, calc(100% - 32px));
+  margin: 18px auto 12px;
+  padding: 14px 22px 13px;
+  border: 1px solid rgba(10, 158, 252, 0.3);
+  border-radius: 18px;
+  background: rgba(5, 12, 25, 0.9);
+  box-shadow:
+    0 0 0 1px rgba(152, 216, 240, 0.04),
+    0 18px 44px rgba(0, 0, 0, 0.28),
+    0 0 32px rgba(10, 158, 252, 0.1);
+}
+
+.shell--mc-embed .quinn-activity__core {
+  position: relative;
+  display: grid;
+  width: 62px;
+  height: 62px;
+  place-items: center;
+}
+
+.shell--mc-embed .quinn-activity__orbit {
+  position: absolute;
+  inset: 4px;
+  border: 1px solid rgba(56, 189, 248, 0.44);
+  border-right-color: rgba(152, 216, 240, 0.12);
+  border-radius: 50%;
+  box-shadow: 0 0 18px rgba(10, 158, 252, 0.2);
+  animation: quinn-orbit 3.2s linear infinite;
+}
+
+.shell--mc-embed .quinn-activity__brain {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  color: #98d8f0;
+  filter: drop-shadow(0 0 10px rgba(10, 158, 252, 0.58));
+  animation: quinn-core-pulse 1.8s ease-in-out infinite;
+}
+
+.shell--mc-embed .quinn-activity__brain svg {
+  width: 28px;
+  height: 28px;
+  fill: none !important;
+  stroke: #98d8f0 !important;
+}
+
+.shell--mc-embed .quinn-activity__charge {
+  position: absolute;
+  display: grid;
+  width: 16px;
+  height: 16px;
+  place-items: center;
+  color: #38bdf8;
+  opacity: 0;
+  filter: drop-shadow(0 0 6px rgba(56, 189, 248, 0.8));
+  animation: quinn-charge 2.8s ease-out infinite;
+}
+
+.shell--mc-embed .quinn-activity__charge svg {
+  width: 13px;
+  height: 13px;
+}
+
+.shell--mc-embed .quinn-activity__charge--one {
+  top: 0;
+  right: 2px;
+}
+
+.shell--mc-embed .quinn-activity__charge--two {
+  bottom: 3px;
+  left: 0;
+  animation-delay: 1.35s;
+}
+
+.shell--mc-embed .quinn-activity__label {
+  color: #dcecff;
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0.015em;
+}
+
+@keyframes quinn-core-pulse {
+  0%,
+  100% {
+    opacity: 0.72;
+    transform: scale(0.92);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+}
+
+@keyframes quinn-orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes quinn-charge {
+  0%,
+  68%,
+  100% {
+    opacity: 0.12;
+    transform: scale(0.72) translateY(2px);
+  }
+  74% {
+    opacity: 1;
+    transform: scale(1.08) translateY(-1px);
+  }
+  84% {
+    opacity: 0.36;
+    transform: scale(0.9) translateY(-4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shell--mc-embed .quinn-activity__orbit,
+  .shell--mc-embed .quinn-activity__brain,
+  .shell--mc-embed .quinn-activity__charge {
+    animation: none !important;
+  }
+
+  .shell--mc-embed .quinn-activity__brain {
+    opacity: 1;
+    transform: none;
+  }
+
+  .shell--mc-embed .quinn-activity__charge {
+    display: none;
+  }
 }
 
 .shell--mc-embed .chat-avatar {
@@ -202,18 +346,30 @@
 
 .shell--mc-embed .btn.primary {
   border-color: rgba(10, 158, 252, 0.76) !important;
-  background: linear-gradient(135deg, rgba(10, 158, 252, 0.88), rgba(56, 189, 248, 0.68)) !important;
+  background: linear-gradient(
+    135deg,
+    rgba(10, 158, 252, 0.88),
+    rgba(56, 189, 248, 0.68)
+  ) !important;
   color: #ffffff;
 }
 
 .shell--mc-embed .chat-compose .chat-compose__actions .btn.primary {
   border-color: rgba(10, 158, 252, 0.76) !important;
-  background: linear-gradient(135deg, rgba(10, 158, 252, 0.88), rgba(56, 189, 248, 0.68)) !important;
+  background: linear-gradient(
+    135deg,
+    rgba(10, 158, 252, 0.88),
+    rgba(56, 189, 248, 0.68)
+  ) !important;
   color: #ffffff !important;
 }
 
 .shell--mc-embed .chat-compose .chat-compose__actions .btn.primary:hover {
-  background: linear-gradient(135deg, rgba(56, 189, 248, 0.92), rgba(10, 158, 252, 0.78)) !important;
+  background: linear-gradient(
+    135deg,
+    rgba(56, 189, 248, 0.92),
+    rgba(10, 158, 252, 0.78)
+  ) !important;
 }
 
 .shell--mc-embed .voice-toggle {
