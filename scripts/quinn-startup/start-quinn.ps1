@@ -48,6 +48,7 @@ function New-QuinnStartupFailureBundle {
         (Join-Path $PSScriptRoot "logs\mc.log"),
         (Join-Path $PSScriptRoot "logs\mc-error.log"),
         (Join-Path $PSScriptRoot "logs\dashboard-error.log"),
+        (Join-Path $PSScriptRoot "logs\marketplace-error.log"),
         (Join-Path $PSScriptRoot "logs\gateway.log")
     )
     foreach ($log in $logs) {
@@ -62,7 +63,7 @@ function New-QuinnStartupFailureBundle {
 Write-Host "=== Starting Quinn & Co ===" -ForegroundColor Cyan
 Write-QuinnStartupEvent -Event "launcher_started"
 
-$launcherMutex = New-Object System.Threading.Mutex($false, "Local\QuinnCoLauncher")
+$launcherMutex = New-Object System.Threading.Mutex($false, $Script:QuinnLauncherMutexName)
 if (-not $launcherMutex.WaitOne(0)) {
     Write-Host "Quinn is already starting." -ForegroundColor Yellow
     exit 0
@@ -78,8 +79,8 @@ try {
         (Test-QuinnServiceHealth -Url $Script:QuinnServices.MC.Health)
     )
 
-    Enable-ScheduledTask -TaskName "Quinn & Co Supervisor" | Out-Null
-    Start-ScheduledTask -TaskName "Quinn & Co Supervisor"
+    Enable-ScheduledTask -TaskName $Script:QuinnTaskName | Out-Null
+    Start-ScheduledTask -TaskName $Script:QuinnTaskName
     Write-QuinnStartupEvent -Event "supervisor_requested"
 
     # Docker is only needed for non-main sandboxed agents. Starting it here can
@@ -102,9 +103,9 @@ try {
             Write-QuinnStartupEvent -Event "sign_in_ready"
             Write-Host "Quinn sign-in is ready." -ForegroundColor Green
             $missionControlUrl = if ($requireFreshLogin) {
-                "http://localhost:3000/api/auth/startup"
+                "http://localhost:$($Script:QuinnPorts.MC)/api/auth/startup"
             } else {
-                "http://localhost:3000/"
+                "http://localhost:$($Script:QuinnPorts.MC)/"
             }
             Start-Process $missionControlUrl
             $browserOpened = $true

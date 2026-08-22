@@ -26,7 +26,7 @@ if ((Test-Path $logFile) -and ((Get-Item $logFile).Length -gt 5MB)) {
 }
 
 # â”€â”€ Single-instance lock (belt; task's IgnoreNew is suspenders) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-$supervisorMutex = New-Object System.Threading.Mutex($false, "Local\QuinnCoSupervisor")
+$supervisorMutex = New-Object System.Threading.Mutex($false, $Script:QuinnSupervisorMutexName)
 if (-not $supervisorMutex.WaitOne(0)) {
     Log "Another supervisor owns the startup mutex - exiting."
     exit 0
@@ -118,10 +118,10 @@ function Invoke-MonitorPass {
 
 # â”€â”€ Boot: adopt-or-start â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # Order matters on cold start: dashboard must be up before MC (MC's auth
-# backend). $Script:QuinnServices is ordered Gateway,Proxy,Admin,Dashboard,MC.
+# backend). Service definitions are instance-scoped by quinn-process-lib.ps1.
 $coldStarted = @()
 $criticalBootOrder = @("Dashboard", "MC", "Gateway", "Proxy")
-$deferredBootOrder = @("Admin")
+$deferredBootOrder = @("Admin", "Marketplace")
 foreach ($name in @($criticalBootOrder + $deferredBootOrder)) {
     try {
         if (Test-QuinnServiceHealth -Url $Script:QuinnServices[$name].Health) {
@@ -162,4 +162,3 @@ while ($true) {
     Start-Sleep -Seconds 30
     try { Invoke-MonitorPass } catch { Log "Monitor pass error: $_" }
 }
-
