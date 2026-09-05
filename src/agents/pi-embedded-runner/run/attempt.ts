@@ -755,7 +755,7 @@ export async function runEmbeddedAttempt(
       ...params,
       disableTools: true,
       clientTools: undefined,
-      skillsSnapshot: { prompt: "", skills: [] },
+      skillsSnapshot: { prompt: "", skills: [], resolvedSkills: [] },
     };
   }
   const resolvedWorkspace = resolveUserPath(params.workspaceDir);

@@ -900,7 +900,7 @@ async function agentCommandInternal(
       isNewSession || !sessionEntry?.skillsSnapshot || skillsSnapshotStale;
     const skillFilter = resolveAgentSkillsFilter(cfg, sessionAgentId);
     const skillsSnapshot = isLegalSessionKey(sessionKey)
-      ? { prompt: "", skills: [] }
+      ? { prompt: "", skills: [], resolvedSkills: [] }
       : needsSkillsSnapshot
         ? buildWorkspaceSkillSnapshot(workspaceDir, {
             config: cfg,

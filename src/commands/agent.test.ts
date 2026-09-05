@@ -7,6 +7,7 @@ import * as cliRunnerModule from "../agents/cli-runner.js";
 import { FailoverError } from "../agents/failover-error.js";
 import { loadModelCatalog } from "../agents/model-catalog.js";
 import * as modelSelectionModule from "../agents/model-selection.js";
+import { resolveEmbeddedRunSkillEntries } from "../agents/pi-embedded-runner/skills-runtime.js";
 import { runEmbeddedPiAgent } from "../agents/pi-embedded.js";
 import { buildWorkspaceSkillSnapshot } from "../agents/skills.js";
 import { getSkillsSnapshotVersion } from "../agents/skills/refresh.js";
@@ -595,7 +596,13 @@ describe("agentCommand", () => {
         expect(attempt.prompt).toBe(message);
         expect(attempt.disableTools).toBe(true);
         expect(attempt.clientTools).toBeUndefined();
-        expect(attempt.skillsSnapshot).toEqual({ prompt: "", skills: [] });
+        expect(attempt.skillsSnapshot).toEqual({ prompt: "", skills: [], resolvedSkills: [] });
+        expect(
+          resolveEmbeddedRunSkillEntries({
+            workspaceDir: home,
+            skillsSnapshot: attempt.skillsSnapshot,
+          }),
+        ).toEqual({ shouldLoadSkillEntries: false, skillEntries: [] });
       }
       expect(buildWorkspaceSkillSnapshot).not.toHaveBeenCalled();
     });
