@@ -5,6 +5,7 @@ import { resolveAcpAgentPolicyError, resolveAcpDispatchPolicyError } from "../ac
 import { toAcpRuntimeError } from "../acp/runtime/errors.js";
 import { resolveAcpSessionCwd } from "../acp/runtime/session-identifiers.js";
 import { createSubsystemLogger } from "../logging/subsystem.js";
+import { isLegalSessionKey } from "../sessions/session-key-utils.js";
 
 const log = createSubsystemLogger("commands/agent");
 import {
@@ -139,8 +140,12 @@ async function persistSessionEntry(params: PersistSessionEntryParams): Promise<v
   params.sessionStore[params.sessionKey] = persisted;
 }
 
-function resolveFallbackRetryPrompt(params: { body: string; isFallbackRetry: boolean }): string {
-  if (!params.isFallbackRetry) {
+function resolveFallbackRetryPrompt(params: {
+  body: string;
+  isFallbackRetry: boolean;
+  sessionKey?: string;
+}): string {
+  if (!params.isFallbackRetry || isLegalSessionKey(params.sessionKey)) {
     return params.body;
   }
   return "Continue where you left off. The previous model attempt failed or timed out.";
@@ -348,12 +353,16 @@ function runAgentAttempt(params: {
   const effectivePrompt = resolveFallbackRetryPrompt({
     body: params.body,
     isFallbackRetry: params.isFallbackRetry,
+    sessionKey: params.sessionKey,
   });
   const bootstrapPromptWarningSignaturesSeen = resolveBootstrapWarningSignaturesSeen(
     params.sessionEntry?.systemPromptReport,
   );
   const bootstrapPromptWarningSignature =
     bootstrapPromptWarningSignaturesSeen[bootstrapPromptWarningSignaturesSeen.length - 1];
+  if (isLegalSessionKey(params.sessionKey) && isCliProvider(params.providerOverride, params.cfg)) {
+    throw new Error("Legal analysis requires the tool-restricted embedded runtime.");
+  }
   if (isCliProvider(params.providerOverride, params.cfg)) {
     const cliSessionId = getCliSessionId(params.sessionEntry, params.providerOverride);
     const runCliWithSession = (nextCliSessionId: string | undefined) =>
@@ -479,7 +488,8 @@ function runAgentAttempt(params: {
     skillsSnapshot: params.skillsSnapshot,
     prompt: effectivePrompt,
     images: params.isFallbackRetry ? undefined : params.opts.images,
-    clientTools: params.opts.clientTools,
+    disableTools: isLegalSessionKey(params.sessionKey),
+    clientTools: isLegalSessionKey(params.sessionKey) ? undefined : params.opts.clientTools,
     provider: params.providerOverride,
     model: params.modelOverride,
     authProfileId,
@@ -706,6 +716,9 @@ async function agentCommandInternal(
     acpResolution,
   } = prepared;
   let sessionEntry = prepared.sessionEntry;
+  if (isLegalSessionKey(sessionKey) && (opts.deliver === true || acpResolution?.kind === "ready")) {
+    throw new Error("Legal analysis cannot deliver externally or use an unrestricted runtime.");
+  }
 
   try {
     if (opts.deliver === true) {
@@ -876,7 +889,7 @@ async function agentCommandInternal(
     // Keep resumed sessions in sync with workspace skill changes: watch for
     // SKILL.md edits and rebuild when the persisted snapshot version is stale
     // (same refresh pattern as the auto-reply path in session-updates.ts).
-    if (process.env.OPENCLAW_TEST_FAST !== "1") {
+    if (!isLegalSessionKey(sessionKey) && process.env.OPENCLAW_TEST_FAST !== "1") {
       ensureSkillsWatcher({ workspaceDir, config: cfg });
     }
     const skillsSnapshotVersion = getSkillsSnapshotVersion(workspaceDir);
@@ -886,14 +899,16 @@ async function agentCommandInternal(
     const needsSkillsSnapshot =
       isNewSession || !sessionEntry?.skillsSnapshot || skillsSnapshotStale;
     const skillFilter = resolveAgentSkillsFilter(cfg, sessionAgentId);
-    const skillsSnapshot = needsSkillsSnapshot
-      ? buildWorkspaceSkillSnapshot(workspaceDir, {
-          config: cfg,
-          eligibility: { remote: getRemoteSkillEligibility() },
-          snapshotVersion: skillsSnapshotVersion,
-          skillFilter,
-        })
-      : sessionEntry?.skillsSnapshot;
+    const skillsSnapshot = isLegalSessionKey(sessionKey)
+      ? { prompt: "", skills: [] }
+      : needsSkillsSnapshot
+        ? buildWorkspaceSkillSnapshot(workspaceDir, {
+            config: cfg,
+            eligibility: { remote: getRemoteSkillEligibility() },
+            snapshotVersion: skillsSnapshotVersion,
+            skillFilter,
+          })
+        : sessionEntry?.skillsSnapshot;
 
     if (skillsSnapshot && sessionStore && sessionKey && needsSkillsSnapshot) {
       const current = sessionEntry ?? {

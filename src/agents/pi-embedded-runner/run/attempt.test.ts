@@ -43,6 +43,20 @@ describe("resolvePromptBuildHookResult", () => {
     };
   }
 
+  it("does not invoke or reuse prompt hooks for a legal session", async () => {
+    const hookRunner = createLegacyOnlyHookRunner();
+    const result = await resolvePromptBuildHookResult({
+      prompt: "PRIVATE_LEGAL_CANARY",
+      messages: [],
+      hookCtx: { sessionKey: "agent:main:legal:synthetic" },
+      hookRunner,
+      legacyBeforeAgentStartResult: { prependContext: "UNRELATED_MEMORY_CANARY" },
+    });
+    expect(result).toEqual({});
+    expect(hookRunner.runBeforeAgentStart).not.toHaveBeenCalled();
+    expect(hookRunner.runBeforePromptBuild).not.toHaveBeenCalled();
+  });
+
   it("reuses precomputed legacy before_agent_start result without invoking hook again", async () => {
     const hookRunner = createLegacyOnlyHookRunner();
     const result = await resolvePromptBuildHookResult({

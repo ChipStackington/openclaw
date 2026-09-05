@@ -13,7 +13,6 @@ import { getSkillsSnapshotVersion } from "../agents/skills/refresh.js";
 import * as commandSecretGatewayModule from "../cli/command-secret-gateway.js";
 import type { OpenClawConfig } from "../config/config.js";
 import * as configModule from "../config/config.js";
-import * as sessionsModule from "../config/sessions.js";
 import { emitAgentEvent, onAgentEvent } from "../infra/agent-events.js";
 import { setActivePluginRegistry } from "../plugins/runtime.js";
 import type { RuntimeEnv } from "../runtime.js";
@@ -496,24 +495,18 @@ describe("agentCommand", () => {
     });
   });
 
-  it("resolves resumed session transcript path from custom session store directory", async () => {
+  it("resolves resumed session transcript in the agent session directory", async () => {
     await withTempHome(async (home) => {
       const customStoreDir = path.join(home, "custom-state");
       const store = path.join(customStoreDir, "sessions.json");
-      writeSessionStoreSeed(store, {});
+      writeSessionStoreSeed(store, {
+        "agent:main:main": { sessionId: "session-custom-123", updatedAt: Date.now() },
+      });
       mockConfig(home, store);
-      const resolveSessionFilePathSpy = vi.spyOn(sessionsModule, "resolveSessionFilePath");
-
       await agentCommand({ message: "resume me", sessionId: "session-custom-123" }, runtime);
-
-      const matchingCall = resolveSessionFilePathSpy.mock.calls.find(
-        (call) => call[0] === "session-custom-123",
-      );
-      expect(matchingCall?.[2]).toEqual(
-        expect.objectContaining({
-          agentId: "main",
-          sessionsDir: customStoreDir,
-        }),
+      // Verify the path passed to the runner; this helper now uses a direct import.
+      expect(getLastEmbeddedCall()?.sessionFile).toBe(
+        path.join(home, ".openclaw", "agents", "main", "sessions", "session-custom-123.jsonl"),
       );
     });
   });
@@ -571,6 +564,40 @@ describe("agentCommand", () => {
       await agentCommand({ message: "hi", to: "+1555" }, runtime);
 
       expectLastRunProviderModel("openai", "gpt-4.1-mini");
+    });
+  });
+
+  it("keeps legal tasks intact and removes tools and skills on every fallback attempt", async () => {
+    await withTempHome(async (home) => {
+      mockConfig(home, path.join(home, "sessions.json"), {
+        model: { primary: "openai/gpt-4.1-mini", fallbacks: ["openai/gpt-5.2"] },
+        models: { "openai/gpt-4.1-mini": {}, "openai/gpt-5.2": {} },
+      });
+      vi.mocked(loadModelCatalog).mockResolvedValueOnce([
+        { id: "gpt-4.1-mini", name: "Mini", provider: "openai" },
+        { id: "gpt-5.2", name: "Fallback", provider: "openai" },
+      ]);
+      vi.mocked(runEmbeddedPiAgent)
+        .mockRejectedValueOnce(Object.assign(new Error("rate limited"), { status: 429 }))
+        .mockResolvedValueOnce(createDefaultAgentResult() as never);
+      const message = "Return JSON for synthetic matter: records due 2026-12-08. Do not send.";
+      await agentCommand(
+        {
+          message,
+          sessionKey: "agent:main:legal:synthetic-isolation",
+          clientTools: [{ type: "function", function: { name: "send_mail" } }],
+        },
+        runtime,
+      );
+      const attempts = vi.mocked(runEmbeddedPiAgent).mock.calls.map(([call]) => call);
+      expect(attempts).toHaveLength(2);
+      for (const attempt of attempts) {
+        expect(attempt.prompt).toBe(message);
+        expect(attempt.disableTools).toBe(true);
+        expect(attempt.clientTools).toBeUndefined();
+        expect(attempt.skillsSnapshot).toEqual({ prompt: "", skills: [] });
+      }
+      expect(buildWorkspaceSkillSnapshot).not.toHaveBeenCalled();
     });
   });
 

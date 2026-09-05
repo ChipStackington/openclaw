@@ -20,6 +20,7 @@ import type {
   PluginHookBeforePromptBuildResult,
 } from "../../../plugins/types.js";
 import { isCronSessionKey, isSubagentSessionKey } from "../../../routing/session-key.js";
+import { isLegalSessionKey } from "../../../sessions/session-key-utils.js";
 import { joinPresentTextSegments } from "../../../shared/text/join-segments.js";
 import { resolveSignalReactionLevel } from "../../../signal/reaction-level.js";
 import { resolveTelegramInlineButtonsScope } from "../../../telegram/inline-buttons.js";
@@ -544,6 +545,9 @@ export async function resolvePromptBuildHookResult(params: {
   hookRunner?: PromptBuildHookRunner | null;
   legacyBeforeAgentStartResult?: PluginHookBeforeAgentStartResult;
 }): Promise<PluginHookBeforePromptBuildResult> {
+  if (isLegalSessionKey(params.hookCtx.sessionKey)) {
+    return {};
+  }
   const promptBuildResult = params.hookRunner?.hasHooks("before_prompt_build")
     ? await params.hookRunner
         .runBeforePromptBuild(
@@ -746,6 +750,14 @@ function summarizeSessionContext(messages: AgentMessage[]): {
 export async function runEmbeddedAttempt(
   params: EmbeddedRunAttemptParams,
 ): Promise<EmbeddedRunAttemptResult> {
+  if (isLegalSessionKey(params.sessionKey)) {
+    params = {
+      ...params,
+      disableTools: true,
+      clientTools: undefined,
+      skillsSnapshot: { prompt: "", skills: [] },
+    };
+  }
   const resolvedWorkspace = resolveUserPath(params.workspaceDir);
   const prevCwd = process.cwd();
   const runAbortController = new AbortController();
@@ -1146,7 +1158,7 @@ export async function runEmbeddedAttempt(
       }
 
       // Get hook runner early so it's available when creating tools
-      const hookRunner = getGlobalHookRunner();
+      const hookRunner = isLegalSessionKey(params.sessionKey) ? undefined : getGlobalHookRunner();
 
       const { builtInTools, customTools } = splitSdkTools({
         tools,
