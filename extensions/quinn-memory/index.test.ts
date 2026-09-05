@@ -4,7 +4,9 @@ import register from "./index.js";
 function makeApi() {
   const handlers: Record<string, (event: any, ctx: any) => Promise<any>> = {};
   const api: any = {
-    on: (name: string, fn: (event: any, ctx: any) => Promise<any>) => { handlers[name] = fn; },
+    on: (name: string, fn: (event: any, ctx: any) => Promise<any>) => {
+      handlers[name] = fn;
+    },
     logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
   };
   register(api);
@@ -12,7 +14,9 @@ function makeApi() {
 }
 
 const origFetch = globalThis.fetch;
-afterEach(() => { globalThis.fetch = origFetch; });
+afterEach(() => {
+  globalThis.fetch = origFetch;
+});
 
 describe("register() hooks", () => {
   it("registers before_agent_start and agent_end", () => {
@@ -26,7 +30,10 @@ describe("register() hooks", () => {
     let captured: any;
     globalThis.fetch = vi.fn(async (_url: any, init: any) => {
       captured = JSON.parse(init.body);
-      return new Response(JSON.stringify({ block: "<agent-memory>x</agent-memory>", memoriesUsed: 1 }), { status: 200 });
+      return new Response(
+        JSON.stringify({ block: "<agent-memory>x</agent-memory>", memoriesUsed: 1 }),
+        { status: 200 },
+      );
     }) as unknown as typeof fetch;
     const r = await handlers.before_agent_start(
       { prompt: "When does Acme want delivery?" },
@@ -39,8 +46,13 @@ describe("register() hooks", () => {
 
   it("before_agent_start returns undefined on bridge failure (fail-open)", async () => {
     const { handlers } = makeApi();
-    globalThis.fetch = vi.fn(async () => { throw new Error("down"); }) as unknown as typeof fetch;
-    const r = await handlers.before_agent_start({ prompt: "x" }, { agentId: "jack", trigger: "user" });
+    globalThis.fetch = vi.fn(async () => {
+      throw new Error("down");
+    }) as unknown as typeof fetch;
+    const r = await handlers.before_agent_start(
+      { prompt: "x" },
+      { agentId: "jack", trigger: "user" },
+    );
     expect(r).toBeUndefined();
   });
 
@@ -48,9 +60,31 @@ describe("register() hooks", () => {
     const { handlers } = makeApi();
     const fetchSpy = vi.fn();
     globalThis.fetch = fetchSpy as unknown as typeof fetch;
-    expect(await handlers.before_agent_start({ prompt: "x" }, { sessionKey: "sms:1555" })).toBeUndefined();
-    expect(await handlers.before_agent_start({ prompt: "x" }, { sessionKey: "agent:a:subagent:b" })).toBeUndefined();
-    expect(await handlers.before_agent_start({ prompt: "x" }, { trigger: "heartbeat" })).toBeUndefined();
+    expect(
+      await handlers.before_agent_start({ prompt: "x" }, { sessionKey: "sms:1555" }),
+    ).toBeUndefined();
+    expect(
+      await handlers.before_agent_start({ prompt: "x" }, { sessionKey: "agent:a:subagent:b" }),
+    ).toBeUndefined();
+    expect(
+      await handlers.before_agent_start({ prompt: "x" }, { trigger: "heartbeat" }),
+    ).toBeUndefined();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("never reads or extracts shared memory for legal sessions", async () => {
+    const { handlers } = makeApi();
+    const fetchSpy = vi.fn();
+    globalThis.fetch = fetchSpy as unknown as typeof fetch;
+    const ctx = { agentId: "main", sessionKey: "agent:main:legal:synthetic", trigger: "user" };
+    expect(
+      await handlers.before_agent_start({ prompt: "PRIVATE_LEGAL_CANARY" }, ctx),
+    ).toBeUndefined();
+    await handlers.agent_end(
+      { messages: [{ role: "user", content: "PRIVATE_LEGAL_CANARY" }], success: true },
+      ctx,
+    );
+    await new Promise((r) => setTimeout(r, 20));
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
@@ -69,15 +103,24 @@ describe("register() hooks", () => {
     await new Promise((r) => setTimeout(r, 20));
     expect(captured.url).toContain("/api/memory/extract");
     expect(captured.body.agentId).toBe("jack");
-    expect(captured.body.messages[0]).toEqual({ role: "user", text: "Remember Acme prefers Tuesdays" });
+    expect(captured.body.messages[0]).toEqual({
+      role: "user",
+      text: "Remember Acme prefers Tuesdays",
+    });
   });
 
   it("agent_end skips failed turns and ineligible runs", async () => {
     const { handlers } = makeApi();
     const fetchSpy = vi.fn();
     globalThis.fetch = fetchSpy as unknown as typeof fetch;
-    await handlers.agent_end({ messages: [{ role: "user", content: "x" }], success: false }, { agentId: "jack" });
-    await handlers.agent_end({ messages: [{ role: "user", content: "x" }], success: true }, { sessionKey: "sms:1555" });
+    await handlers.agent_end(
+      { messages: [{ role: "user", content: "x" }], success: false },
+      { agentId: "jack" },
+    );
+    await handlers.agent_end(
+      { messages: [{ role: "user", content: "x" }], success: true },
+      { sessionKey: "sms:1555" },
+    );
     await new Promise((r) => setTimeout(r, 20));
     expect(fetchSpy).not.toHaveBeenCalled();
   });

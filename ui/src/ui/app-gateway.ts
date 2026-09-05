@@ -3,7 +3,6 @@ import {
   type GatewayUpdateAvailableEventPayload,
 } from "../../../src/gateway/events.js";
 import { ConnectErrorDetailCodes } from "../../../src/gateway/protocol/connect-error-details.js";
-import { speakText } from "./voice-tts.ts";
 import { CHAT_SESSIONS_ACTIVE_MINUTES, flushChatQueueForEvent } from "./app-chat.ts";
 import type { EventLogEntry } from "./app-events.ts";
 import {
@@ -45,6 +44,7 @@ import type {
   StatusSummary,
   UpdateAvailable,
 } from "./types.ts";
+import { speakText } from "./voice-tts.ts";
 
 function isGenericBrowserFetchFailure(message: string): boolean {
   return /^(?:typeerror:\s*)?(?:fetch failed|failed to fetch)$/i.test(message.trim());
@@ -65,6 +65,7 @@ function formatAuthCloseErrorMessage(code: string | null, fallback: string): str
 }
 
 type GatewayHost = {
+  agentsSelectedId?: string | null;
   settings: UiSettings;
   password: string;
   clientInstanceId: string;
@@ -341,7 +342,7 @@ function handleChatGatewayEvent(host: GatewayHost, payload: ChatEventPayload | u
     if (text.trim()) {
       // Extract agent ID from session key (e.g. "agent:jack:main" → "jack")
       const sessionAgentId = host.sessionKey?.startsWith("agent:")
-        ? host.sessionKey.split(":")[1] ?? undefined
+        ? (host.sessionKey.split(":")[1] ?? undefined)
         : undefined;
       void speakText(text, host.client, sessionAgentId ?? host.agentsSelectedId ?? undefined);
     }
