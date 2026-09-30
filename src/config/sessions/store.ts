@@ -196,6 +196,8 @@ export function loadSessionStore(
   storePath: string,
   opts: LoadSessionStoreOptions = {},
 ): Record<string, SessionEntry> {
+  // Capture this before cache validation can evict a temporarily missing file.
+  const previouslyLoaded = getSerializedSessionStore(storePath) !== undefined;
   // Check cache first if enabled
   if (!opts.skipCache && isSessionStoreCacheEnabled()) {
     const currentFileStat = getFileStatSnapshot(storePath);
@@ -238,8 +240,18 @@ export function loadSessionStore(
       fileStat = getFileStatSnapshot(storePath) ?? fileStat;
       mtimeMs = fileStat?.mtimeMs;
       break;
-    } catch {
-      // File missing, locked, or transiently corrupt — retry on Windows.
+    } catch (error) {
+      // Unused agents normally have no store. Do not stall the gateway for each
+      // absent path; retain recovery for files observed before this read.
+      if (
+        (error as NodeJS.ErrnoException).code === "ENOENT" &&
+        !fileStat &&
+        !previouslyLoaded &&
+        !fs.existsSync(`${storePath}.lock`)
+      ) {
+        break;
+      }
+      // Existing file missing, locked, or transiently corrupt — retry on Windows.
       if (attempt < maxReadAttempts - 1) {
         Atomics.wait(retryBuf!, 0, 0, 50);
         continue;

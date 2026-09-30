@@ -95,6 +95,9 @@ export default defineConfig([
     entry: "src/entry.ts",
   }),
   nodeBuildConfig({
+    entry: "src/gateway-rpc.ts",
+  }),
+  nodeBuildConfig({
     // Ensure this module is bundled as an entry so legacy CLI shims can resolve its exports.
     entry: "src/cli/daemon-cli.ts",
   }),
