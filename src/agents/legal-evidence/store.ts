@@ -60,6 +60,9 @@ export class EngineEvidenceStore {
       encoding: kind === "response-stream" || kind === "terminal-frame" ? "binary" : "utf8",
     };
     assertEvidenceSchema("Blob", blob);
+    if (blob.encoding === "utf8") {
+      new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    }
     this.directories();
     withEvidenceLock(path.join(this.root, "locks", blob.sha256 + ".lock"), () => {
       try {
@@ -81,6 +84,9 @@ export class EngineEvidenceStore {
     const bytes = readCheckedFile(path.join(this.root, "blobs", blob.sha256), LIMITS[blob.kind]);
     if (bytes.length !== blob.bytes || bytesHash(bytes) !== blob.sha256) {
       throw new Error("evidence-blob-integrity");
+    }
+    if (blob.encoding === "utf8") {
+      new TextDecoder("utf-8", { fatal: true }).decode(bytes);
     }
     return bytes;
   }

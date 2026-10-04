@@ -4,9 +4,9 @@ import os from "node:os";
 import path from "node:path";
 import { test } from "vitest";
 import fixtures from "./development-fixtures.json" with { type: "json" };
-import { evidenceHash, evidenceJsonV1 } from "./hash.js";
+import { bytesHash, evidenceHash, evidenceJsonV1 } from "./hash.js";
 import { EngineEvidenceStore } from "./store.js";
-import type { EngineReceipt, WireAttempt } from "./types.js";
+import type { Blob, EngineReceipt, WireAttempt } from "./types.js";
 
 function fixture(onFinished: (f: () => void) => void) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "quinn-engine-b1-"));
@@ -44,6 +44,44 @@ function sendIntent(store: EngineEvidenceStore, record: EngineReceipt): EngineRe
   next.attempts = [attempt];
   return next;
 }
+for (const kind of [
+  "packet",
+  "submitted-prompt",
+  "request-body",
+  "provider-text",
+  "assembled-text",
+  "journal",
+] as const) {
+  test(`${kind} refuses malformed UTF-8 before writing and on direct persisted reads`, ({
+    onTestFinished,
+  }) => {
+    const { root, store } = fixture(onTestFinished);
+    for (const bytes of [
+      Buffer.from([0xff]),
+      Buffer.from([0xc0, 0xaf]),
+      Buffer.from([0xe2, 0x82]),
+      Buffer.from([0xed, 0xa0, 0x80]),
+    ]) {
+      assert.throws(() => store.putBlob(kind, bytes));
+      const blob: Blob = { kind, sha256: bytesHash(bytes), bytes: bytes.length, encoding: "utf8" };
+      assert.equal(fs.existsSync(path.join(root, "blobs", blob.sha256)), false);
+      fs.writeFileSync(path.join(root, "blobs", blob.sha256), bytes);
+      assert.throws(() => new EngineEvidenceStore(root).readBlob(blob));
+      fs.unlinkSync(path.join(root, "blobs", blob.sha256));
+    }
+    const valid = Buffer.from("\uFEFFlegal \u00E9 \uD83D\uDE80");
+    assert.deepEqual(store.readBlob(store.putBlob(kind, valid)), valid);
+  });
+}
+test("binary response stream and terminal frame preserve malformed text bytes exactly", ({
+  onTestFinished,
+}) => {
+  const { store } = fixture(onTestFinished),
+    bytes = Buffer.from([0xff, 0xc0, 0xaf, 0xe2, 0x82]);
+  for (const kind of ["response-stream", "terminal-frame"] as const) {
+    assert.deepEqual(store.readBlob(store.putBlob(kind, bytes)), bytes);
+  }
+});
 test("permanent reservation is durable; identical UUID never schedules again after restart", ({
   onTestFinished,
 }) => {
