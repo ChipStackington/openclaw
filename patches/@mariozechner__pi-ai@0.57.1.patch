@@ -1,0 +1,205 @@
+diff --git a/dist/providers/simple-options.js b/dist/providers/simple-options.js
+index de04c6d..cd81f7c 100644
+--- a/dist/providers/simple-options.js
++++ b/dist/providers/simple-options.js
+@@ -8,6 +8,7 @@ export function buildBaseOptions(model, options, apiKey) {
+         sessionId: options?.sessionId,
+         headers: options?.headers,
+         onPayload: options?.onPayload,
++        ...(options?.legalEvidenceObserver ? { legalEvidenceObserver: options.legalEvidenceObserver, transport: options.transport } : {}),
+         maxRetryDelayMs: options?.maxRetryDelayMs,
+         metadata: options?.metadata,
+     };
+@@ -32,4 +33,3 @@ export function adjustMaxTokensForThinking(baseMaxTokens, modelMaxTokens, reason
+     }
+     return { maxTokens, thinkingBudget };
+ }
+-//# sourceMappingURL=simple-options.js.map
+\ No newline at end of file
+diff --git a/dist/providers/openai-codex-responses.js b/dist/providers/openai-codex-responses.js
+index 76efb05..cb5997b 100644
+--- a/dist/providers/openai-codex-responses.js
++++ b/dist/providers/openai-codex-responses.js
+@@ -7,6 +7,7 @@ if (typeof process !== "undefined" && (process.versions?.node || process.version
+         _os = m;
+     });
+ }
++import { parseLegalEvidenceSSE } from "./legal-evidence-sse.js";
+ import { getEnvApiKey } from "../env-api-keys.js";
+ import { supportsXhigh } from "../models.js";
+ import { AssistantMessageEventStream } from "../utils/event-stream.js";
+@@ -55,6 +56,8 @@ function sleep(ms, signal) {
+ // ============================================================================
+ export const streamOpenAICodexResponses = (model, context, options) => {
+     const stream = new AssistantMessageEventStream();
++    const observer = options?.legalEvidenceObserver;
++    let failureKind = "capture-io";
+     (async () => {
+         const output = {
+             role: "assistant",
+@@ -87,6 +90,10 @@ export const streamOpenAICodexResponses = (model, context, options) => {
+             const headers = buildHeaders(model.headers, options?.headers, accountId, apiKey, options?.sessionId);
+             const bodyJson = JSON.stringify(body);
+             const transport = options?.transport || "sse";
++            if (observer && (transport !== "sse" || model.provider !== "openai-codex" || resolveCodexUrl(model.baseUrl) !== "https://chatgpt.com/backend-api/codex/responses")) {
++                failureKind = "unsupported-transport";
++                throw new Error("legal-evidence-policy");
++            }
+             if (transport !== "sse") {
+                 let websocketStarted = false;
+                 try {
+@@ -118,12 +125,27 @@ export const streamOpenAICodexResponses = (model, context, options) => {
+                     throw new Error("Request was aborted");
+                 }
+                 try {
++                    if (observer) {
++                        await observer.onRequest({ body: bodyJson, url: resolveCodexUrl(model.baseUrl), method: "POST", transport: "sse", model: model.id, provider: model.provider, httpAttemptIndex: attempt });
++                        failureKind = "transport-unknown";
++                    }
+                     response = await fetch(resolveCodexUrl(model.baseUrl), {
+                         method: "POST",
+                         headers,
+                         body: bodyJson,
+                         signal: options?.signal,
++                        ...(observer ? { redirect: "manual" } : {}),
+                     });
++                    if (observer) {
++                        failureKind = "capture-io";
++                        await observer.onResponse({ status: response.status, contentType: response.headers.get("content-type") });
++                        if (!response.ok) {
++                            failureKind = "provider-failed";
++                            await response.body?.cancel();
++                            await observer.onRetryDenied();
++                            throw new Error("legal-evidence-http-held");
++                        }
++                    }
+                     if (response.ok) {
+                         break;
+                     }
+@@ -142,6 +164,10 @@ export const streamOpenAICodexResponses = (model, context, options) => {
+                     throw new Error(info.friendlyMessage || info.message);
+                 }
+                 catch (error) {
++                    if (observer) {
++                        if (failureKind === "transport-unknown") await observer.onRetryDenied();
++                        throw error;
++                    }
+                     if (error instanceof Error) {
+                         if (error.name === "AbortError" || error.message === "Request was aborted") {
+                             throw new Error("Request was aborted");
+@@ -164,16 +190,21 @@ export const streamOpenAICodexResponses = (model, context, options) => {
+                 throw new Error("No response body");
+             }
+             stream.push({ type: "start", partial: output });
+-            await processStream(response, output, stream, model);
++            failureKind = "capture-io";
++            await processStream(response, output, stream, model, observer);
+             if (options?.signal?.aborted) {
+                 throw new Error("Request was aborted");
+             }
++            if (observer) await observer.onComplete({ text: output.content.filter(b => b.type === "text").map(b => b.text).join(""), stopReason: output.stopReason, toolCalls: output.content.filter(b => b.type === "toolCall").length });
+             stream.push({ type: "done", reason: output.stopReason, message: output });
+             stream.end();
+         }
+         catch (error) {
+             output.stopReason = options?.signal?.aborted ? "aborted" : "error";
+-            output.errorMessage = error instanceof Error ? error.message : String(error);
++            if (observer) {
++                try { await observer.onFailure(options?.signal?.aborted ? "aborted" : failureKind); } catch { /* The private context remains held when storage fails. */ }
++            }
++            output.errorMessage = observer ? "legal-evidence-held" : error instanceof Error ? error.message : String(error);
+             stream.push({ type: "error", reason: output.stopReason, error: output });
+             stream.end();
+         }
+@@ -255,8 +286,8 @@ function resolveCodexWebSocketUrl(baseUrl) {
+ // ============================================================================
+ // Response Processing
+ // ============================================================================
+-async function processStream(response, output, stream, model) {
+-    await processResponsesStream(mapCodexEvents(parseSSE(response)), output, stream, model);
++async function processStream(response, output, stream, model, observer) {
++    await processResponsesStream(mapCodexEvents(observer ? parseLegalEvidenceSSE(response, observer) : parseSSE(response)), output, stream, model);
+ }
+ async function* mapCodexEvents(events) {
+     for await (const event of events) {
+@@ -701,4 +732,3 @@ function buildHeaders(initHeaders, additionalHeaders, accountId, token, sessionI
+     }
+     return headers;
+ }
+-//# sourceMappingURL=openai-codex-responses.js.map
+\ No newline at end of file
+diff --git a/dist/providers/legal-evidence-sse.js b/dist/providers/legal-evidence-sse.js
+new file mode 100644
+index 0000000..470b812
+--- /dev/null
++++ b/dist/providers/legal-evidence-sse.js
+@@ -0,0 +1,40 @@
++// Private, bounded framing for the explicitly scoped legal observer only.
++// The ordinary provider parser remains unchanged when the observer is absent.
++export async function* parseLegalEvidenceSSE(response, observer) {
++    const reader = response.body.getReader();
++    let total = 0, frameBuffer = new Uint8Array(1024), frameLength = 0, lineLength = 0, lastByte = 0, terminalCount = 0;
++    try {
++        while (true) {
++            const { done, value } = await reader.read();
++            if (done) break;
++            total += value.byteLength;
++            if (total > 16000000) throw new Error("legal-evidence-limit");
++            await observer.onChunk(value);
++            for (let i = 0; i < value.length; i++) {
++                if (frameLength === frameBuffer.length) {
++                    const grown = new Uint8Array(Math.min(16000000, frameBuffer.length * 2));
++                    grown.set(frameBuffer); frameBuffer = grown;
++                }
++                frameBuffer[frameLength++] = value[i];
++                if (value[i] !== 10) { lineLength++; lastByte = value[i]; continue; }
++                const boundary = lineLength === 0 || (lineLength === 1 && lastByte === 13);
++                lineLength = 0;
++                if (!boundary) continue;
++                const frame = frameBuffer.slice(0, frameLength); frameLength = 0;
++                const text = new TextDecoder("utf-8", { fatal: true }).decode(frame);
++                const data = text.split(/\r?\n/).filter(l => l.startsWith("data:")).map(l => l.slice(5).replace(/^ /, "")).join("\n");
++                if (!data || data === "[DONE]") continue;
++                const event = JSON.parse(data);
++                if (!event || typeof event !== "object" || Array.isArray(event)) throw new Error("legal-evidence-frame");
++                if (event.type === "response.completed" || event.type === "response.done") {
++                    if (++terminalCount !== 1) throw new Error("legal-evidence-duplicate-terminal");
++                    await observer.onTerminal(frame);
++                }
++                yield event;
++            }
++        }
++        if (frameLength || lineLength || terminalCount !== 1) throw new Error("legal-evidence-incomplete-stream");
++    } finally {
++        try { await reader.cancel(); } finally { reader.releaseLock(); }
++    }
++}
+diff --git a/dist/types.d.ts b/dist/types.d.ts
+index 9814f16..b4fc18f 100644
+--- a/dist/types.d.ts
++++ b/dist/types.d.ts
+@@ -14,7 +14,18 @@ export interface ThinkingBudgets {
+ }
+ export type CacheRetention = "none" | "short" | "long";
+ export type Transport = "sse" | "websocket" | "auto";
++export interface LegalEvidenceObserver {
++    onRequest(request: { body: string; url: string; method: "POST"; transport: "sse"; model: string; provider: string; httpAttemptIndex: number }): Promise<void>;
++    onResponse(response: { status: number; contentType: string | null }): Promise<void>;
++    onChunk(bytes: Uint8Array): Promise<void>;
++    onTerminal(frame: Uint8Array): Promise<void>;
++    onComplete(result: { text: string; stopReason: string; toolCalls: number }): Promise<void>;
++    onFailure(reason: "capture-io" | "transport-unknown" | "provider-failed" | "unsupported-transport" | "aborted"): Promise<void>;
++    onRetryDenied(): Promise<void>;
++}
+ export interface StreamOptions {
++    /** Private legal capture; requires the pinned patched Codex SSE adapter. */
++    legalEvidenceObserver?: LegalEvidenceObserver;
+     temperature?: number;
+     maxTokens?: number;
+     signal?: AbortSignal;
+@@ -282,4 +293,3 @@ export interface Model<TApi extends Api> {
+     /** Compatibility overrides for OpenAI-compatible APIs. If not set, auto-detected from baseUrl. */
+     compat?: TApi extends "openai-completions" ? OpenAICompletionsCompat : TApi extends "openai-responses" ? OpenAIResponsesCompat : never;
+ }
+-//# sourceMappingURL=types.d.ts.map
+\ No newline at end of file

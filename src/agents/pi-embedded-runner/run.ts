@@ -289,10 +289,12 @@ export async function runEmbeddedPiAgent(
           `[workspace-fallback] caller=runEmbeddedPiAgent reason=${workspaceResolution.fallbackReason} run=${params.runId} session=${redactedSessionId} sessionKey=${redactedSessionKey} agent=${workspaceResolution.agentId} workspace=${redactedWorkspace}`,
         );
       }
-      ensureRuntimePluginsLoaded({
-        config: params.config,
-        workspaceDir: resolvedWorkspace,
-      });
+      if (!params.legalEvidenceCapture) {
+        ensureRuntimePluginsLoaded({
+          config: params.config,
+          workspaceDir: resolvedWorkspace,
+        });
+      }
       const prevCwd = process.cwd();
 
       let provider = (params.provider ?? DEFAULT_PROVIDER).trim() || DEFAULT_PROVIDER;
@@ -630,7 +632,12 @@ export async function runEmbeddedPiAgent(
         lastProfileId = apiKeyInfo.profileId;
       };
 
+      let authRotations = 0;
+      let thinkingDowngrades = 0;
       const advanceAuthProfile = async (): Promise<boolean> => {
+        if (params.legalEvidenceCapture) {
+          params.legalEvidenceCapture.deny();
+        }
         if (lockedProfileId) {
           return false;
         }
@@ -644,6 +651,7 @@ export async function runEmbeddedPiAgent(
           try {
             await applyApiKeyInfo(candidate);
             profileIndex = nextIndex;
+            authRotations++;
             thinkLevel = initialThinkLevel;
             attemptedThinking.clear();
             return true;
@@ -798,12 +806,23 @@ export async function runEmbeddedPiAgent(
       // Resolve the context engine once and reuse across retries to avoid
       // repeated initialization/connection overhead per attempt.
       ensureContextEnginesInitialized();
+      if (
+        params.legalEvidenceCapture &&
+        params.config?.plugins?.slots?.contextEngine &&
+        params.config.plugins.slots.contextEngine !== "legacy"
+      ) {
+        params.legalEvidenceCapture.deny("compaction-denied");
+      }
       const contextEngine = await resolveContextEngine(params.config);
+      if (params.legalEvidenceCapture && contextEngine.info.id !== "legacy") {
+        params.legalEvidenceCapture.deny("compaction-denied");
+      }
       try {
         let authRetryPending = false;
         // Hoisted so the retry-limit error path can use the most recent API total.
         let lastTurnTotal: number | undefined;
         while (true) {
+          params.legalEvidenceCapture?.runnerStarted(provider, model.id, thinkLevel);
           if (runLoopIterations >= MAX_RUN_LOOP_ITERATIONS) {
             const message =
               `Exceeded retry limit after ${runLoopIterations} attempts ` +
@@ -846,6 +865,7 @@ export async function runEmbeddedPiAgent(
             provider === "anthropic" ? scrubAnthropicRefusalMagic(params.prompt) : params.prompt;
 
           const attempt = await runEmbeddedAttempt({
+            legalEvidenceCapture: params.legalEvidenceCapture,
             sessionId: params.sessionId,
             sessionKey: params.sessionKey,
             trigger: params.trigger,
@@ -926,6 +946,20 @@ export async function runEmbeddedPiAgent(
             sessionIdUsed,
             lastAssistant,
           } = attempt;
+          if (
+            params.legalEvidenceCapture &&
+            (promptError ||
+              aborted ||
+              timedOut ||
+              lastAssistant?.stopReason === "error" ||
+              lastAssistant?.stopReason === "aborted" ||
+              lastAssistant?.stopReason === "length")
+          ) {
+            await params.legalEvidenceCapture.observer.onFailure(
+              aborted ? "aborted" : "provider-failed",
+            );
+            params.legalEvidenceCapture.deny();
+          }
           bootstrapPromptWarningSignaturesSeen =
             attempt.bootstrapPromptWarningSignaturesSeen ??
             (attempt.bootstrapPromptWarningSignature
@@ -1244,6 +1278,7 @@ export async function runEmbeddedPiAgent(
                 `unsupported thinking level for ${provider}/${modelId}; retrying with ${fallbackThinking}`,
               );
               thinkLevel = fallbackThinking;
+              thinkingDowngrades++;
               continue;
             }
             // Throw FailoverError for prompt-side failover reasons when fallbacks
@@ -1262,15 +1297,18 @@ export async function runEmbeddedPiAgent(
             throw promptError;
           }
 
-          const fallbackThinking = pickFallbackThinkingLevel({
-            message: lastAssistant?.errorMessage,
-            attempted: attemptedThinking,
-          });
+          const fallbackThinking = params.legalEvidenceCapture
+            ? null
+            : pickFallbackThinkingLevel({
+                message: lastAssistant?.errorMessage,
+                attempted: attemptedThinking,
+              });
           if (fallbackThinking && !aborted) {
             log.warn(
               `unsupported thinking level for ${provider}/${modelId}; retrying with ${fallbackThinking}`,
             );
             thinkLevel = fallbackThinking;
+            thinkingDowngrades++;
             continue;
           }
 
@@ -1463,6 +1501,20 @@ export async function runEmbeddedPiAgent(
               agentDir: params.agentDir,
             });
           }
+          params.legalEvidenceCapture?.finishRunner({
+            aborted,
+            compactions: autoCompactionCount,
+            toolCalls: attempt.toolMetas.length + Number(Boolean(attempt.clientToolCall)),
+            messagingSends: Math.max(
+              Number(attempt.didSendViaMessagingTool),
+              attempt.messagingToolSentTexts.length,
+              attempt.messagingToolSentMediaUrls.length,
+              attempt.messagingToolSentTargets.length,
+            ),
+            continuations: params.legalEvidenceCapture.providerContinuations,
+            thinkingDowngrades,
+            authRotations,
+          });
           return {
             payloads: payloads.length ? payloads : undefined,
             meta: {

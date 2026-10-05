@@ -360,7 +360,10 @@ function runAgentAttempt(params: {
   );
   const bootstrapPromptWarningSignature =
     bootstrapPromptWarningSignaturesSeen[bootstrapPromptWarningSignaturesSeen.length - 1];
-  if (isLegalSessionKey(params.sessionKey) && isCliProvider(params.providerOverride, params.cfg)) {
+  if (
+    (params.opts.legalEvidenceCapture || isLegalSessionKey(params.sessionKey)) &&
+    isCliProvider(params.providerOverride, params.cfg)
+  ) {
     throw new Error("Legal analysis requires the tool-restricted embedded runtime.");
   }
   if (isCliProvider(params.providerOverride, params.cfg)) {
@@ -465,6 +468,7 @@ function runAgentAttempt(params: {
       ? params.sessionEntry?.authProfileOverride
       : undefined;
   return runEmbeddedPiAgent({
+    legalEvidenceCapture: params.opts.legalEvidenceCapture,
     sessionId: params.sessionId,
     sessionKey: params.sessionKey,
     agentId: params.sessionAgentId,
@@ -1129,8 +1133,13 @@ async function agentCommandInternal(
         provider,
         model,
         agentDir,
-        fallbacksOverride: effectiveFallbacksOverride,
+        fallbacksOverride: opts.legalEvidenceCapture ? [] : effectiveFallbacksOverride,
         run: (providerOverride, modelOverride, runOptions) => {
+          opts.legalEvidenceCapture?.candidate(
+            providerOverride,
+            modelOverride,
+            resolvedThinkLevel ?? "off",
+          );
           const isFallbackRetry = fallbackAttemptIndex > 0;
           fallbackAttemptIndex += 1;
           return runAgentAttempt({
@@ -1193,6 +1202,7 @@ async function agentCommandInternal(
         });
       }
     } catch (err) {
+      await opts.legalEvidenceCapture?.observer.onFailure("provider-failed");
       if (!lifecycleEnded) {
         emitAgentEvent({
           runId,

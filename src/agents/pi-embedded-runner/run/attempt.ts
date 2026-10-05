@@ -49,6 +49,7 @@ import { DEFAULT_CONTEXT_TOKENS } from "../../defaults.js";
 import { resolveOpenClawDocsPath } from "../../docs-path.js";
 import { isTimeoutError } from "../../failover-error.js";
 import { resolveImageSanitizationLimits } from "../../image-sanitization.js";
+import { applyLegalCaptureSettings } from "../../legal-evidence/capture.js";
 import { resolveModelAuthMode } from "../../model-auth.js";
 import { normalizeProviderId, resolveDefaultModelForAgent } from "../../model-selection.js";
 import { supportsModelTools } from "../../model-tool-support.js";
@@ -1130,10 +1131,14 @@ export async function runEmbeddedAttempt(
         agentDir,
         cfg: params.config,
       });
-      applyPiAutoCompactionGuard({
-        settingsManager,
-        contextEngineInfo: params.contextEngine?.info,
-      });
+      if (params.legalEvidenceCapture) {
+        applyLegalCaptureSettings(settingsManager);
+      } else {
+        applyPiAutoCompactionGuard({
+          settingsManager,
+          contextEngineInfo: params.contextEngine?.info,
+        });
+      }
 
       // Sets compaction/pruning runtime state and returns extension factories
       // that must be passed to the resource loader for the safeguard to be active.
@@ -1264,6 +1269,11 @@ export async function runEmbeddedAttempt(
       } else {
         // Force a stable streamFn reference so vitest can reliably mock @mariozechner/pi-ai.
         activeSession.agent.streamFn = streamSimple;
+      }
+      if (params.legalEvidenceCapture) {
+        activeSession.agent.streamFn = params.legalEvidenceCapture.wrapStream(
+          activeSession.agent.streamFn,
+        );
       }
 
       // Ollama with OpenAI-compatible API needs num_ctx in payload.options.
@@ -1396,6 +1406,16 @@ export async function runEmbeddedAttempt(
         activeSession.agent.streamFn = anthropicPayloadLogger.wrapStreamFn(
           activeSession.agent.streamFn,
         );
+      }
+      if (params.legalEvidenceCapture) {
+        if (
+          !params.disableTools ||
+          tools.length ||
+          allCustomTools.length ||
+          params.images?.length
+        ) {
+          params.legalEvidenceCapture.deny();
+        }
       }
 
       try {

@@ -1,4 +1,5 @@
 import type { AgentInternalEvent } from "../../agents/internal-events.js";
+import type { LegalEvidenceCapture } from "../../agents/legal-evidence/capture.js";
 import type { ClientToolDefinition } from "../../agents/pi-embedded-runner/run/params.js";
 import type { SpawnedRunMetadata } from "../../agents/spawned-context.js";
 import type { ChannelOutboundTargetMode } from "../../channels/plugins/types.js";
@@ -30,6 +31,8 @@ export type AgentRunContext = {
 };
 
 export type AgentCommandOpts = {
+  /** Constructed by the authenticated legal ingress only, never accepted from wire JSON. */
+  legalEvidenceCapture?: LegalEvidenceCapture;
   message: string;
   /** Optional image attachments for multimodal messages. */
   images?: ImageContent[];
