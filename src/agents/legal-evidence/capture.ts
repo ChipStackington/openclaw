@@ -41,6 +41,13 @@ const object = (value: unknown): Record<string, unknown> => {
   }
   return value as Record<string, unknown>;
 };
+function losslessUtf8(value: string): Buffer {
+  const bytes = Buffer.from(value, "utf8");
+  if (new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes) !== value) {
+    throw new Error("legal-evidence-utf8-loss");
+  }
+  return bytes;
+}
 function frameData(bytes: Uint8Array): Record<string, unknown> | undefined {
   const text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes);
   const boundary = /\r?\n\r?\n/.exec(text);
@@ -55,7 +62,7 @@ function frameData(bytes: Uint8Array): Record<string, unknown> | undefined {
   if (!data || data === "[DONE]") {
     return undefined;
   }
-  return object(parseEvidenceJson(Buffer.from(data)));
+  return object(parseEvidenceJson(Buffer.from(data), 16_000_000));
 }
 /** Reparse original bytes independently of adapter model/status normalization. */
 export function projectLegalTerminal(
@@ -110,9 +117,10 @@ export function projectLegalTerminal(
       throw new Error("legal-evidence-output");
     }
     text += part.text;
-    if (Buffer.byteLength(text) > 1_000_000) {
-      throw new Error("legal-evidence-limit");
-    }
+  }
+  const textBytes = losslessUtf8(text);
+  if (textBytes.length > 1_000_000) {
+    throw new Error("legal-evidence-limit");
   }
   let observedEffort: Expected["effort"] | null = null;
   if (response.reasoning !== undefined && response.reasoning !== null) {
@@ -200,11 +208,13 @@ export class LegalEvidenceCapture {
     record: EngineReceipt,
     submittedAssignment: string,
   ): LegalEvidenceCapture {
+    if (typeof submittedAssignment !== "string" || submittedAssignment.length === 0) {
+      throw new Error("legal-evidence-assignment-binding");
+    }
+    const submittedBytes = losslessUtf8(submittedAssignment);
     if (
-      typeof submittedAssignment !== "string" ||
-      submittedAssignment.length === 0 ||
-      Buffer.byteLength(submittedAssignment) > 1_000_000 ||
-      bytesHash(submittedAssignment) !== record.binding.submittedPromptHash
+      submittedBytes.byteLength > 1_000_000 ||
+      bytesHash(submittedBytes) !== record.binding.submittedPromptHash
     ) {
       throw new Error("legal-evidence-assignment-binding");
     }
@@ -219,12 +229,14 @@ export class LegalEvidenceCapture {
     envelope: EngineEnvelope,
     submittedAssignment: string,
   ): LegalEvidenceCapture {
+    if (typeof submittedAssignment !== "string" || submittedAssignment.length === 0) {
+      throw new Error("legal-evidence-assignment-binding");
+    }
+    const submittedBytes = losslessUtf8(submittedAssignment);
     const durable = store.read(envelope.record.operationId);
     if (
-      typeof submittedAssignment !== "string" ||
-      submittedAssignment.length === 0 ||
-      Buffer.byteLength(submittedAssignment) > 1_000_000 ||
-      bytesHash(submittedAssignment) !== envelope.record.binding.submittedPromptHash ||
+      submittedBytes.byteLength > 1_000_000 ||
+      bytesHash(submittedBytes) !== envelope.record.binding.submittedPromptHash ||
       envelope.record.state !== "prepared" ||
       envelope.record.attempts.length !== 0 ||
       durable.hash !== envelope.hash
@@ -386,7 +398,7 @@ export class LegalEvidenceCapture {
         if (bytes.length > 2_000_000) {
           this.reject("evidence-limit");
         }
-        const body = object(parseEvidenceJson(bytes)),
+        const body = object(parseEvidenceJson(bytes, 2_000_000)),
           reasoning = object(body.reasoning);
         if (
           request.url !== endpoint ||
@@ -583,7 +595,9 @@ export class LegalEvidenceCapture {
         if (bytesHash(originalTerminal(bytes)) !== bytesHash(this.terminal.bytes)) {
           this.reject("metadata-mismatch");
         }
-        const { text, usage, ...projection } = this.terminal.projection;
+        const { text, usage, ...projection } = this.terminal.projection,
+          textBytes = losslessUtf8(text),
+          assembledBytes = losslessUtf8(result.text);
         this.complete = {
           ...this.envelope.record.attempts[0],
           state: "completed",
@@ -593,8 +607,8 @@ export class LegalEvidenceCapture {
             frame: this.store.putBlob("terminal-frame", this.terminal.bytes),
           },
           projectionPolicy: "single-assistant-output-v1",
-          providerText: this.store.putBlob("provider-text", Buffer.from(text)),
-          assembledText: this.store.putBlob("assembled-text", Buffer.from(result.text)),
+          providerText: this.store.putBlob("provider-text", textBytes),
+          assembledText: this.store.putBlob("assembled-text", assembledBytes),
           adapterStopReason: "stop",
           usage,
         };

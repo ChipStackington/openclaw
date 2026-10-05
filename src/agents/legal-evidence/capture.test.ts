@@ -32,7 +32,7 @@ test("retry and compaction overrides are per-run and never use persistent setter
   assert.deepEqual(overrides, { retry: { enabled: false }, compaction: { enabled: false } });
 });
 const text = '{"complete":"é 🚀"}';
-function frame(change: Record<string, unknown> = {}) {
+function frame(change: Record<string, unknown> = {}, outputText = text) {
   return Buffer.from(
     "data: " +
       JSON.stringify({
@@ -46,7 +46,7 @@ function frame(change: Record<string, unknown> = {}) {
               type: "message",
               role: "assistant",
               status: "completed",
-              content: [{ type: "output_text", text }],
+              content: [{ type: "output_text", text: outputText }],
             },
           ],
           ...change,
@@ -252,6 +252,68 @@ test("capture creation binds assignment bytes to the ingress prompt hash", async
     fs.existsSync(path.join(root, "operations", `${oversized.operationId}.json`)),
     false,
   );
+});
+test("capture creation rejects a submitted assignment that cannot round-trip as UTF-8", async ({
+  onTestFinished,
+}) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "legal-b2-invalid-assignment-"));
+  onTestFinished(() => fs.rmSync(root, { recursive: true, force: true }));
+  const store = new EngineEvidenceStore(root);
+  for (const assignment of ["high-\uD800", "low-\uDC00"]) {
+    const r = prepared(store, assignment);
+    assert.throws(() => LegalEvidenceCapture.create(store, r, assignment));
+    assert.equal(fs.existsSync(path.join(root, "operations", `${r.operationId}.json`)), false);
+  }
+});
+test("terminal projection preserves bounded output above the metadata JSON limit", () => {
+  const output = "x".repeat(900_000),
+    projected = projectLegalTerminal(frame({}, output), {
+      provider: "openai-codex",
+      model: "gpt-6.1-sol",
+      effort: "high",
+      physicalRequestCeiling: 1,
+    });
+  assert.equal(projected.text, output);
+});
+test("terminal projection rejects lone surrogate output but keeps valid surrogate pairs", () => {
+  for (const output of ["high-\uD800", "low-\uDC00"]) {
+    assert.throws(() =>
+      projectLegalTerminal(frame({}, output), {
+        provider: "openai-codex",
+        model: "gpt-6.1-sol",
+        effort: "high",
+        physicalRequestCeiling: 1,
+      }),
+    );
+  }
+  const validPair = "pair-\uD83D\uDE80";
+  assert.equal(
+    projectLegalTerminal(frame({}, validPair), {
+      provider: "openai-codex",
+      model: "gpt-6.1-sol",
+      effort: "high",
+      physicalRequestCeiling: 1,
+    }).text,
+    validPair,
+  );
+});
+test("wire capture accepts the approved request bound above the metadata JSON limit", async ({
+  onTestFinished,
+}) => {
+  const assignment = "a".repeat(150_000),
+    { store, r, capture } = setup(onTestFinished, assignment);
+  capture.candidate("openai-codex", "gpt-6.1-sol", "high");
+  capture.runnerStarted();
+  const body = JSON.stringify({
+    model: "gpt-6.1-sol",
+    reasoning: { effort: "high" },
+    stream: true,
+    input: [{ role: "user", content: assignment }],
+  });
+  await capture.observer.onRequest({ ...request, body });
+  const saved = store.read(r.operationId).record;
+  assert.equal(saved.attempts.length, 1);
+  assert.equal(store.readBlob(saved.attempts[0].requestBody).toString(), body);
 });
 test("independent original terminal projection preserves exact text and absent effort", () => {
   const p = projectLegalTerminal(frame(), {
