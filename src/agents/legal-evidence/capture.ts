@@ -191,15 +191,28 @@ export class LegalEvidenceCapture {
   private constructor(
     private readonly store: EngineEvidenceStore,
     envelope: EngineEnvelope,
+    private readonly submittedAssignment: string,
   ) {
     this.envelope = envelope;
   }
-  static create(store: EngineEvidenceStore, record: EngineReceipt): LegalEvidenceCapture {
+  static create(
+    store: EngineEvidenceStore,
+    record: EngineReceipt,
+    submittedAssignment: string,
+  ): LegalEvidenceCapture {
+    if (
+      typeof submittedAssignment !== "string" ||
+      submittedAssignment.length === 0 ||
+      Buffer.byteLength(submittedAssignment) > 1_000_000 ||
+      bytesHash(submittedAssignment) !== record.binding.submittedPromptHash
+    ) {
+      throw new Error("legal-evidence-assignment-binding");
+    }
     const reservation = store.reserve(record);
     if (!reservation.created) {
       throw new Error("legal-evidence-operation-already-reserved");
     }
-    return new LegalEvidenceCapture(store, reservation.envelope);
+    return new LegalEvidenceCapture(store, reservation.envelope, submittedAssignment);
   }
   get binding() {
     return structuredClone(this.envelope.record.binding);
@@ -372,6 +385,8 @@ export class LegalEvidenceCapture {
         ) {
           this.reject("metadata-mismatch");
         }
+        let assignmentCount = 0;
+        let assignment = "";
         for (const value of body.input) {
           const item = object(value);
           if (item.type === "function_call" || item.type === "function_call_output") {
@@ -390,6 +405,10 @@ export class LegalEvidenceCapture {
             this.reject("metadata-mismatch");
           }
           if (typeof item.content === "string") {
+            if (item.role === "user") {
+              assignmentCount++;
+              assignment = item.content;
+            }
             continue;
           }
           if (!Array.isArray(item.content) || item.content.length === 0) {
@@ -399,11 +418,21 @@ export class LegalEvidenceCapture {
             const part = object(value);
             if (
               (part.type !== "input_text" && part.type !== "output_text") ||
-              typeof part.text !== "string"
+              typeof part.text !== "string" ||
+              (item.role === "user" && part.type !== "input_text")
             ) {
               this.reject("metadata-mismatch");
             }
+            if (item.role === "user") {
+              assignment += part.text;
+            }
           }
+          if (item.role === "user") {
+            assignmentCount++;
+          }
+        }
+        if (assignmentCount !== 1 || assignment !== this.submittedAssignment) {
+          this.reject("metadata-mismatch");
         }
         // An uncertain commit consumes the in-memory budget before any storage write.
         this.reserved = true;

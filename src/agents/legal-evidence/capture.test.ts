@@ -10,7 +10,7 @@ import {
   applyLegalCaptureSettings,
 } from "./capture.js";
 import fixtures from "./development-fixtures.json" with { type: "json" };
-import { evidenceHash } from "./hash.js";
+import { bytesHash, evidenceHash } from "./hash.js";
 import { EngineEvidenceStore } from "./store.js";
 import type { EngineReceipt, ExecutionSummary } from "./types.js";
 const clean: ExecutionSummary = {
@@ -55,12 +55,13 @@ function frame(change: Record<string, unknown> = {}) {
       "\r\n\r\n",
   );
 }
-function prepared(store: EngineEvidenceStore): EngineReceipt {
+function prepared(store: EngineEvidenceStore, submittedAssignment = "offline"): EngineReceipt {
   const r = structuredClone(fixtures.records.engine.record) as EngineReceipt;
   r.operationId = randomUUID();
   r.binding.operationId = r.operationId;
   r.preparedAt = new Date().toISOString();
   r.binding.deadlineAt = new Date(Date.now() + 60_000).toISOString();
+  r.binding.submittedPromptHash = bytesHash(submittedAssignment);
   r.bindingHash = evidenceHash(r.binding);
   r.state = "prepared";
   r.events = [];
@@ -71,12 +72,16 @@ function prepared(store: EngineEvidenceStore): EngineReceipt {
   }
   return r;
 }
-function setup(onFinished: (fn: () => void) => void) {
+function setup(onFinished: (fn: () => void) => void, submittedAssignment = "offline") {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "legal-b2-"));
   onFinished(() => fs.rmSync(root, { recursive: true, force: true }));
   const store = new EngineEvidenceStore(root),
-    r = prepared(store);
-  return { store, r, capture: LegalEvidenceCapture.create(store, r) };
+    r = prepared(store, submittedAssignment);
+  return {
+    store,
+    r,
+    capture: LegalEvidenceCapture.create(store, r, submittedAssignment),
+  };
 }
 const request = {
   body: JSON.stringify({
@@ -103,7 +108,7 @@ test("capture reserves exact bytes durably before send, never refunds across res
   assert.equal(saved.attempts.length, 1);
   assert.equal(saved.attempts[0].state, "send-intent");
   assert.equal(store.readBlob(saved.attempts[0].requestBody).toString(), request.body);
-  assert.throws(() => LegalEvidenceCapture.create(store, r));
+  assert.throws(() => LegalEvidenceCapture.create(store, r, "offline"));
   await assert.rejects(() => capture.observer.onRequest(request));
   assert.equal(store.read(r.operationId).record.attempts.length, 1);
 });
@@ -183,7 +188,13 @@ test("text history and provider reasoning signatures remain eligible", async ({
         role: "assistant",
         content: [{ type: "output_text", text: "prior assistant text" }],
       },
-      { role: "user", content: "bound current facts" },
+      {
+        role: "user",
+        content: [
+          { type: "input_text", text: "off" },
+          { type: "input_text", text: "line" },
+        ],
+      },
     ],
   });
   await capture.observer.onRequest({ ...request, body });
@@ -191,6 +202,28 @@ test("text history and provider reasoning signatures remain eligible", async ({
   assert.equal(saved.attempts.length, 1);
   assert.equal(store.readBlob(saved.attempts[0].requestBody).toString(), body);
 });
+for (const [label, input] of [
+  ["changed assignment", [{ role: "user", content: "different assignment" }]],
+  [
+    "extra user turn",
+    [
+      { role: "user", content: "offline" },
+      { role: "user", content: "unbound prior turn" },
+    ],
+  ],
+  ["missing assignment", [{ role: "assistant", content: "offline" }]],
+] as Array<[string, unknown[]]>) {
+  test(`wire request must retain the sole complete submitted assignment (${label})`, async ({
+    onTestFinished,
+  }) => {
+    const { store, r, capture } = setup(onTestFinished);
+    capture.candidate("openai-codex", "gpt-6.1-sol", "high");
+    capture.runnerStarted();
+    const body = JSON.stringify({ ...JSON.parse(request.body), input });
+    await assert.rejects(() => capture.observer.onRequest({ ...request, body }));
+    assert.equal(store.read(r.operationId).record.attempts.length, 0);
+  });
+}
 test("request without input refuses before reservation", async ({ onTestFinished }) => {
   const { store, r, capture } = setup(onTestFinished);
   capture.candidate("openai-codex", "gpt-6.1-sol", "high");
@@ -202,6 +235,23 @@ test("request without input refuses before reservation", async ({ onTestFinished
   });
   await assert.rejects(() => capture.observer.onRequest({ ...request, body }));
   assert.equal(store.read(r.operationId).record.attempts.length, 0);
+});
+test("capture creation binds assignment bytes to the ingress prompt hash", async ({
+  onTestFinished,
+}) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "legal-b2-assignment-"));
+  onTestFinished(() => fs.rmSync(root, { recursive: true, force: true }));
+  const store = new EngineEvidenceStore(root),
+    r = prepared(store);
+  assert.throws(() => LegalEvidenceCapture.create(store, r, "changed assignment"));
+  assert.equal(fs.existsSync(path.join(root, "operations", `${r.operationId}.json`)), false);
+  const overLimit = "x".repeat(1_000_001),
+    oversized = prepared(store, overLimit);
+  assert.throws(() => LegalEvidenceCapture.create(store, oversized, overLimit));
+  assert.equal(
+    fs.existsSync(path.join(root, "operations", `${oversized.operationId}.json`)),
+    false,
+  );
 });
 test("independent original terminal projection preserves exact text and absent effort", () => {
   const p = projectLegalTerminal(frame(), {
@@ -281,7 +331,7 @@ test("simultaneous contexts keep operation bytes and budgets isolated", async ({
   onTestFinished,
 }) => {
   const a = setup(onTestFinished),
-    b = setup(onTestFinished);
+    b = setup(onTestFinished, "other");
   for (const c of [a.capture, b.capture]) {
     c.candidate("openai-codex", "gpt-6.1-sol", "high");
     c.runnerStarted();

@@ -9,7 +9,7 @@ import type { Model } from "@mariozechner/pi-ai";
 import { test, vi } from "vitest";
 import { LegalEvidenceCapture } from "./capture.js";
 import fixtures from "./development-fixtures.json" with { type: "json" };
-import { evidenceHash } from "./hash.js";
+import { bytesHash, evidenceHash } from "./hash.js";
 import { EngineEvidenceStore } from "./store.js";
 import type { EngineReceipt } from "./types.js";
 const adapterRoot = process.env.B2_ADAPTER_ROOT
@@ -101,6 +101,7 @@ function setup(onFinished: (fn: () => void) => void) {
   r.binding.operationId = r.operationId;
   r.preparedAt = new Date().toISOString();
   r.binding.deadlineAt = new Date(Date.now() + 60_000).toISOString();
+  r.binding.submittedPromptHash = bytesHash("offline");
   r.bindingHash = evidenceHash(r.binding);
   r.state = "prepared";
   r.events = [];
@@ -109,7 +110,7 @@ function setup(onFinished: (fn: () => void) => void) {
   for (const k of ["endedAt", "selectedAttemptId", "executionSummary", "holdReason"] as const) {
     delete r[k];
   }
-  const capture = LegalEvidenceCapture.create(store, r);
+  const capture = LegalEvidenceCapture.create(store, r, "offline");
   capture.candidate("openai-codex", model.id, "high");
   capture.runnerStarted("openai-codex", model.id, "high");
   return { store, r, capture };
@@ -168,7 +169,7 @@ test("actual patched adapter commits exact mutated body before mocked fetch, the
   assert.deepEqual(store.readBlob(saved.attempts[0].terminal!.frame), encode(terminal));
   assert.equal(store.readBlob(saved.attempts[0].providerText!).toString(), text);
   assert.equal(calls, 1);
-  assert.throws(() => LegalEvidenceCapture.create(store, r));
+  assert.throws(() => LegalEvidenceCapture.create(store, r, "offline"));
 });
 test("simultaneous actual adapter streams stay bound to their own operation", async ({
   onTestFinished,
@@ -253,6 +254,26 @@ test("actual adapter refuses media introduced by final payload mutation before f
   assert.equal(saved.attempts.length, 0);
   assert.equal(saved.state, "failed");
 });
+test("actual adapter refuses a changed submitted assignment before fetch", async ({
+  onTestFinished,
+}) => {
+  const { store, r, capture } = setup(onTestFinished);
+  let calls = 0;
+  vi.stubGlobal("fetch", async () => {
+    calls++;
+    return response();
+  });
+  const result = await run(capture, {
+    onPayload: (body: Record<string, unknown>) => ({
+      ...body,
+      input: [{ role: "user", content: [{ type: "input_text", text: "changed" }] }],
+    }),
+  });
+  assert.equal(result.stopReason, "error");
+  assert.equal(result.errorMessage, "legal-evidence-held");
+  assert.equal(calls, 0);
+  assert.equal(store.read(r.operationId).record.attempts.length, 0);
+});
 for (const kind of ["429", "redirect", "network", "duplicate", "wrong-model"]) {
   test(
     "actual adapter " + kind + " stays held with one permanent reservation",
@@ -280,7 +301,7 @@ for (const kind of ["429", "redirect", "network", "duplicate", "wrong-model"]) {
       const saved = store.read(r.operationId).record;
       assert.equal(saved.attempts.length, 1);
       assert.notEqual(saved.state, "completed");
-      assert.throws(() => LegalEvidenceCapture.create(store, r));
+      assert.throws(() => LegalEvidenceCapture.create(store, r, "offline"));
     },
   );
 }
@@ -295,7 +316,7 @@ test("final effort mismatch is held before any HTTP call", async ({ onTestFinish
   assert.equal(result.stopReason, "error");
   assert.equal(calls, 0);
   assert.equal(store.read(r.operationId).record.attempts.length, 0);
-  assert.throws(() => LegalEvidenceCapture.create(store, r));
+  assert.throws(() => LegalEvidenceCapture.create(store, r, "offline"));
 });
 test("uncertain request storage consumes logical operation without sending or replaying", async ({
   onTestFinished,
@@ -314,5 +335,5 @@ test("uncertain request storage consumes logical operation without sending or re
   assert.equal(result.stopReason, "error");
   assert.equal(calls, 0);
   store.commit = commit;
-  assert.throws(() => LegalEvidenceCapture.create(store, r));
+  assert.throws(() => LegalEvidenceCapture.create(store, r, "offline"));
 });
