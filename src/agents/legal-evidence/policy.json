@@ -1,0 +1,97 @@
+{
+  "version": 1,
+  "name": "quinn-legal-single-request-v1",
+  "evidenceSchema": "quinn-legal-model-evidence-v1",
+  "schemaBytesHash": "6fb4954dc0a0c0b65efe34f4eb380eb071e17e1801a79d60f3e21a0955b46b2b",
+  "roles": {
+    "legal-practice": {
+      "provider": "openai-codex",
+      "model": "gpt-6.1-sol",
+      "effort": "high",
+      "physicalRequestCeiling": 1
+    },
+    "legal-facts": {
+      "provider": "openai-codex",
+      "model": "gpt-6.1-sol",
+      "effort": "high",
+      "physicalRequestCeiling": 1
+    },
+    "legal-research": {
+      "provider": "openai-codex",
+      "model": "gpt-6.1-sol",
+      "effort": "high",
+      "physicalRequestCeiling": 1
+    },
+    "legal-updates": {
+      "provider": "openai-codex",
+      "model": "gpt-6.1-sol",
+      "effort": "high",
+      "physicalRequestCeiling": 1
+    },
+    "legal-drafting": {
+      "provider": "openai-codex",
+      "model": "gpt-6.1-sol",
+      "effort": "high",
+      "physicalRequestCeiling": 1
+    },
+    "legal-verification": {
+      "provider": "openai-codex",
+      "model": "gpt-6-astra",
+      "effort": "medium",
+      "physicalRequestCeiling": 1
+    },
+    "legal-strategy": {
+      "provider": "openai-codex",
+      "model": "gpt-6-astra",
+      "effort": "medium",
+      "physicalRequestCeiling": 1
+    }
+  },
+  "physicalRequestCeiling": 1,
+  "transport": "sse",
+  "method": "POST",
+  "endpoint": "https://chatgpt.com/backend-api/codex/responses",
+  "limits": {
+    "packetBytes": 1000000,
+    "submittedPromptBytes": 1000000,
+    "requestBodyBytes": 2000000,
+    "responseStreamBytes": 16000000,
+    "terminalFrameBytes": 16000000,
+    "providerTextBytes": 1000000,
+    "assembledTextBytes": 1000000,
+    "journalBytes": 512000,
+    "manifestBytes": 128000,
+    "chunkBytes": 128000,
+    "rawSourceCharacters": 60000,
+    "renderedSourceCharacters": 160000,
+    "packetCharacters": 240000,
+    "caseTopics": 6,
+    "summaryTopics": 12
+  },
+  "forbidden": [
+    "physical-retry",
+    "model-fallback",
+    "auth-rotation",
+    "thinking-downgrade",
+    "compaction",
+    "tool-call",
+    "messaging-send",
+    "continuation",
+    "websocket-transport",
+    "assignment-truncation",
+    "extra-user-turn"
+  ],
+  "projection": "single-assistant-output-v1",
+  "terminal": {
+    "event": ["response.completed", "response.done"],
+    "responseStatus": "completed",
+    "assistantStatus": "completed",
+    "assistantMessages": 1,
+    "contentType": "output_text",
+    "matchingModelRequired": true,
+    "compareEffortWhenPresent": true,
+    "forbidError": true,
+    "forbidIncompleteDetails": true,
+    "preserveExactLosslessUtf8": true
+  }
+}

@@ -10,22 +10,17 @@ import {
   readLegalEvidenceBlob,
   resolveEvidenceClientBinding,
   reserveLegalEvidenceIngress,
+  validateLegalEvidenceIngress,
 } from "./gateway.js";
 import { bytesHash, evidenceHash } from "./hash.js";
+import { LEGAL_EVIDENCE_MODEL_POLICY_HASH } from "./policy.js";
 import { EngineEvidenceStore } from "./store.js";
 import type { CaptureRequest, RuntimeIdentity } from "./types.js";
 
 const prompt = "Analyze the admitted matter packet under the assigned legal role.";
 const now = new Date("2026-10-04T12:00:00.000Z");
 const runtime = structuredClone(fixtures.records.engine.record.runtime) as RuntimeIdentity;
-const modelPolicyHash = evidenceHash({
-  version: "quinn-legal-single-request-v1",
-  providers: ["openai-codex"],
-  models: ["gpt-6.1-sol", "gpt-6-astra"],
-  efforts: ["high", "medium"],
-  physicalRequestCeiling: 1,
-  transport: "sse",
-});
+const modelPolicyHash = LEGAL_EVIDENCE_MODEL_POLICY_HASH;
 
 function onDisk(onFinished: (f: () => void) => void) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "quinn-engine-b3-"));
@@ -56,7 +51,7 @@ function ingress() {
     sessionKey: descriptor.binding.sessionKey,
     thinking: descriptor.binding.expected.effort,
     deliver: false,
-    idempotencyKey: descriptor.binding.runId,
+    idempotencyKey: descriptor.binding.operationId,
     legalEvidence: descriptor,
   };
   const peer = {
@@ -69,6 +64,38 @@ function ingress() {
   };
   return { descriptor, params, peer };
 }
+
+test("MC run identity remains distinct from the gateway idempotency operation identity", () => {
+  const f = ingress();
+  assert.notEqual(f.descriptor.binding.operationId, f.descriptor.binding.runId);
+  f.params.idempotencyKey = f.descriptor.binding.operationId;
+  assert.doesNotThrow(() => validateLegalEvidenceIngress({ ...f, runtime, now }));
+  f.params.idempotencyKey = f.descriptor.binding.runId;
+  assert.throws(() => validateLegalEvidenceIngress({ ...f, runtime, now }));
+});
+
+test("gateway refuses a supported model/effort assigned to the wrong legal role", () => {
+  const f = ingress();
+  f.descriptor.binding.expected.model = "gpt-6-astra";
+  f.descriptor.binding.expected.effort = "medium";
+  f.params.thinking = "medium";
+  f.descriptor.bindingHash = evidenceHash(f.descriptor.binding);
+  assert.throws(() => validateLegalEvidenceIngress({ ...f, runtime, now }));
+});
+
+test("the old partial model-list policy hash cannot authorize the complete strict policy", () => {
+  const f = ingress();
+  f.descriptor.binding.modelPolicyHash = evidenceHash({
+    version: "quinn-legal-single-request-v1",
+    providers: ["openai-codex"],
+    models: ["gpt-6.1-sol", "gpt-6-astra"],
+    efforts: ["high", "medium"],
+    physicalRequestCeiling: 1,
+    transport: "sse",
+  });
+  f.descriptor.bindingHash = evidenceHash(f.descriptor.binding);
+  assert.throws(() => validateLegalEvidenceIngress({ ...f, runtime, now }));
+});
 
 test("evidence ingress requires an authenticated CLI device and the required operator scope", () => {
   const { peer } = ingress();

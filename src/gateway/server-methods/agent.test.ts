@@ -336,7 +336,7 @@ describe("gateway agent handler", () => {
       sessionKey: descriptor.binding.sessionKey,
       thinking: "high",
       deliver: false,
-      idempotencyKey: descriptor.binding.runId,
+      idempotencyKey: descriptor.binding.operationId,
       legalEvidence: descriptor,
     } as AgentParams;
     const ctx = { ...makeContext(), legalEvidenceRuntime: runtime } as GatewayRequestContext;
@@ -423,7 +423,7 @@ describe("gateway agent handler", () => {
         {
           ...request,
           sessionKey: deniedDescriptor.binding.sessionKey,
-          idempotencyKey: deniedDescriptor.binding.runId,
+          idempotencyKey: deniedDescriptor.binding.operationId,
           legalEvidence: deniedDescriptor,
         },
         {

@@ -1,4 +1,5 @@
 import { bytesHash, evidenceHash } from "./hash.js";
+import { assertLegalEvidencePolicy } from "./policy.js";
 import { assertEvidenceSchema } from "./schema.js";
 import { EngineEvidenceStore } from "./store.js";
 import type {
@@ -11,14 +12,7 @@ import type {
   RuntimeIdentity,
 } from "./types.js";
 
-export const LEGAL_EVIDENCE_MODEL_POLICY_HASH = evidenceHash({
-  version: "quinn-legal-single-request-v1",
-  providers: ["openai-codex"],
-  models: ["gpt-6.1-sol", "gpt-6-astra"],
-  efforts: ["high", "medium"],
-  physicalRequestCeiling: 1,
-  transport: "sse",
-});
+export { LEGAL_EVIDENCE_MODEL_POLICY_HASH } from "./policy.js";
 
 export type EvidencePeer = {
   authenticatedDeviceId?: string | null;
@@ -83,9 +77,9 @@ export function resolveEvidenceClientBinding(
 function assertRuntimeMatches(runtime: RuntimeIdentity, request: CaptureRequest): void {
   assertEvidenceSchema("RuntimeIdentity", runtime);
   const binding = request.binding;
+  assertLegalEvidencePolicy(binding);
   if (
     request.modelPolicy !== "quinn-legal-single-request-v1" ||
-    binding.modelPolicyHash !== LEGAL_EVIDENCE_MODEL_POLICY_HASH ||
     runtime.installationId !== binding.engineInstallationId ||
     runtime.engineRevision !== binding.engineRevision ||
     runtime.engineBuildHash !== binding.engineBuildHash ||
@@ -116,7 +110,7 @@ function assertIngressMatches(
     params.agentId !== binding.roleId ||
     params.sessionKey !== binding.sessionKey ||
     !binding.sessionKey.startsWith(`agent:${binding.roleId}:legal:`) ||
-    params.idempotencyKey !== binding.runId ||
+    params.idempotencyKey !== binding.operationId ||
     params.thinking !== binding.expected.effort ||
     Buffer.byteLength(params.message, "utf8") > 1_000_000 ||
     bytesHash(params.message) !== binding.submittedPromptHash ||
