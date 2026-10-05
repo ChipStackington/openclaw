@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   resolveSendPolicy: vi.fn(() => "allow" as "allow" | "deny"),
   registerAgentRunContext: vi.fn(),
   sessionsResetHandler: vi.fn(),
+  maybeEmitOutcome: vi.fn(),
   loadConfigReturn: {} as Record<string, unknown>,
 }));
 
@@ -48,6 +49,8 @@ vi.mock("../../config/sessions.js", async () => {
     }) => `agent:${agentId}:${cfg?.session?.mainKey ?? "main"}`,
   };
 });
+
+vi.mock("../../infra/outcomes/judge-sink.js", () => ({ maybeEmitOutcome: mocks.maybeEmitOutcome }));
 
 vi.mock("../../commands/agent.js", () => ({
   agentCommand: mocks.agentCommand,
@@ -339,7 +342,10 @@ describe("gateway agent handler", () => {
       idempotencyKey: descriptor.binding.operationId,
       legalEvidence: descriptor,
     } as AgentParams;
-    const ctx = { ...makeContext(), legalEvidenceRuntime: runtime } as GatewayRequestContext;
+    const ctx = {
+      ...makeContext(),
+      legalEvidenceReadRuntime: () => structuredClone(runtime),
+    } as GatewayRequestContext;
     mocks.loadConfigReturn = {};
     mocks.loadSessionEntry.mockReturnValue({
       cfg: {},
@@ -389,7 +395,10 @@ describe("gateway agent handler", () => {
       const restartedRespond = vi.fn();
       await invokeAgent(request, {
         respond: restartedRespond,
-        context: { ...makeContext(), legalEvidenceRuntime: runtime } as GatewayRequestContext,
+        context: {
+          ...makeContext(),
+          legalEvidenceReadRuntime: () => structuredClone(runtime),
+        } as GatewayRequestContext,
         client: authenticatedClient,
         isWebchatConnect: () => false,
       });
@@ -813,4 +822,93 @@ describe("gateway agent handler", () => {
       }),
     );
   });
+});
+
+for (const outcome of ["success", "failure"] as const) {
+  it(`strict legal ${outcome} releases active ownership and never forwards private work`, async () => {
+    const previous = process.env.OPENCLAW_STATE_DIR;
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "quinn-astra-handler-"));
+    process.env.OPENCLAW_STATE_DIR = root;
+    const descriptor = structuredClone(evidenceFixtures.records.capture) as CaptureRequest;
+    const runtime = structuredClone(
+      evidenceFixtures.records.engine.record.runtime,
+    ) as RuntimeIdentity;
+    const message = "DEVELOPMENT private legal assignment";
+    descriptor.binding.operationId = "00000000-0000-4000-8000-000000000091";
+    descriptor.binding.sessionKey = `agent:legal-facts:legal:${descriptor.binding.operationId}`;
+    descriptor.binding.submittedPromptHash = bytesHash(message);
+    descriptor.binding.modelPolicyHash = LEGAL_EVIDENCE_MODEL_POLICY_HASH;
+    descriptor.binding.deadlineAt = new Date(Date.now() + 300_000).toISOString();
+    descriptor.bindingHash = evidenceHash(descriptor.binding);
+    const ctx = {
+      ...makeContext(),
+      legalEvidenceReadRuntime: () => structuredClone(runtime),
+    } as GatewayRequestContext;
+    const respond = vi.fn();
+    mocks.maybeEmitOutcome.mockClear();
+    mocks.loadConfigReturn = {};
+    mocks.resolveSendPolicy.mockReturnValue("allow");
+    mocks.loadSessionEntry.mockReturnValue({
+      cfg: {},
+      storePath: path.join(root, "sessions.json"),
+      entry: { sessionId: "development-legal", updatedAt: Date.now() },
+      canonicalKey: descriptor.binding.sessionKey,
+    });
+    mocks.updateSessionStore.mockImplementation(async (_path, updater) => {
+      await updater({});
+    });
+    mocks.agentCommand.mockReset();
+    if (outcome === "success") {
+      mocks.agentCommand.mockResolvedValue({
+        payloads: [{ text: "DEVELOPMENT private legal output" }],
+      });
+    } else {
+      mocks.agentCommand.mockRejectedValue(new Error("DEVELOPMENT failure before candidate"));
+    }
+    try {
+      await invokeAgent(
+        {
+          message,
+          agentId: "legal-facts",
+          sessionKey: descriptor.binding.sessionKey,
+          thinking: "high",
+          deliver: false,
+          idempotencyKey: descriptor.binding.operationId,
+          legalEvidence: descriptor,
+        } as AgentParams,
+        {
+          respond,
+          context: ctx,
+          client: {
+            authenticatedDeviceId: "development-device",
+            connect: {
+              role: "operator",
+              scopes: ["operator.read", "operator.write"],
+              client: { id: "mission-control-cli", mode: "cli" },
+            },
+          } as never,
+          isWebchatConnect: () => false,
+        },
+      );
+      await vi.waitFor(() => expect(respond).toHaveBeenCalledTimes(2));
+      expect(mocks.agentCommand).toHaveBeenCalledTimes(1);
+      expect(mocks.maybeEmitOutcome).not.toHaveBeenCalled();
+      expect(ctx.legalEvidenceActiveOperationIds?.size).toBe(0);
+    } finally {
+      if (previous === undefined) {
+        delete process.env.OPENCLAW_STATE_DIR;
+      } else {
+        process.env.OPENCLAW_STATE_DIR = previous;
+      }
+      fs.rmSync(root, { recursive: true, force: true });
+      mocks.agentCommand.mockReset();
+    }
+  });
+}
+
+it("ordinary agent success retains its existing outcome hook", async () => {
+  mocks.maybeEmitOutcome.mockClear();
+  mocks.agentCommand.mockResolvedValue({ payloads: [{ text: "ordinary development output" }] });
+  await runMainAgent("ordinary development assignment", "astra-ordinary-outcome");
+  await vi.waitFor(() => expect(mocks.maybeEmitOutcome).toHaveBeenCalledTimes(1));
 });

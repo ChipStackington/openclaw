@@ -49,7 +49,7 @@ export const legalEvidenceHandlers: GatewayRequestHandlers = {
         client?.connect ? isWebchatConnect(client.connect) : true,
       );
       resolveEvidenceClientBinding(peer, "operator.read");
-      const capabilities = getLegalEvidenceCapabilities(context.legalEvidenceRuntime);
+      const capabilities = getLegalEvidenceCapabilities(context.legalEvidenceReadRuntime);
       if (!capabilities) {
         throw new Error("legal-evidence-runtime-unavailable");
       }

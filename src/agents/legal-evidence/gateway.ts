@@ -1,5 +1,6 @@
 import { bytesHash, evidenceHash } from "./hash.js";
 import { assertLegalEvidencePolicy } from "./policy.js";
+import { readCurrentLegalEvidenceRuntime } from "./runtime.js";
 import { assertEvidenceSchema } from "./schema.js";
 import { EngineEvidenceStore } from "./store.js";
 import type {
@@ -286,14 +287,10 @@ export function readLegalEvidenceBlob(params: {
   };
 }
 
-export function getLegalEvidenceCapabilities(
-  runtime: RuntimeIdentity | undefined,
-): Capabilities | undefined {
-  if (!runtime) {
-    return undefined;
-  }
+export function getLegalEvidenceCapabilities(reader: unknown): Capabilities | undefined {
+  let runtime: RuntimeIdentity;
   try {
-    assertEvidenceSchema("RuntimeIdentity", runtime);
+    runtime = readCurrentLegalEvidenceRuntime(reader);
   } catch {
     return undefined;
   }

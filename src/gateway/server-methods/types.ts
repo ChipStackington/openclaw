@@ -1,4 +1,4 @@
-import type { RuntimeIdentity } from "../../agents/legal-evidence/types.js";
+import type { LegalEvidenceRuntimeReader } from "../../agents/legal-evidence/runtime.js";
 import type { ModelCatalogEntry } from "../../agents/model-catalog.js";
 import type { createDefaultDeps } from "../../cli/deps.js";
 import type { HealthSummary } from "../../commands/health.js";
@@ -91,8 +91,8 @@ export type GatewayRequestContext = {
     prompter: import("../../wizard/prompts.js").WizardPrompter,
   ) => Promise<void>;
   broadcastVoiceWakeChanged: (triggers: string[]) => void;
-  /** Omitted until startup can measure the exact reviewed runtime; absence is fail-closed. */
-  legalEvidenceRuntime?: RuntimeIdentity;
+  /** Server-only current material measurement; absence is fail-closed. */
+  legalEvidenceReadRuntime?: LegalEvidenceRuntimeReader;
   /** Process-local liveness for reserved operations; never restored across gateway restart. */
   legalEvidenceActiveOperationIds?: Set<string>;
 };

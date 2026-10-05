@@ -110,7 +110,9 @@ function setup(onFinished: (fn: () => void) => void) {
   for (const k of ["endedAt", "selectedAttemptId", "executionSummary", "holdReason"] as const) {
     delete r[k];
   }
-  const capture = LegalEvidenceCapture.create(store, r, "offline");
+  const capture = LegalEvidenceCapture.create(store, r, "offline", () =>
+    structuredClone(r.runtime),
+  );
   capture.candidate("openai-codex", model.id, "high");
   capture.runnerStarted("openai-codex", model.id, "high");
   return { store, r, capture };
@@ -169,7 +171,9 @@ test("actual patched adapter commits exact mutated body before mocked fetch, the
   assert.deepEqual(store.readBlob(saved.attempts[0].terminal!.frame), encode(terminal));
   assert.equal(store.readBlob(saved.attempts[0].providerText!).toString(), text);
   assert.equal(calls, 1);
-  assert.throws(() => LegalEvidenceCapture.create(store, r, "offline"));
+  assert.throws(() =>
+    LegalEvidenceCapture.create(store, r, "offline", () => structuredClone(r.runtime)),
+  );
 });
 test("simultaneous actual adapter streams stay bound to their own operation", async ({
   onTestFinished,
@@ -301,7 +305,9 @@ for (const kind of ["429", "redirect", "network", "duplicate", "wrong-model"]) {
       const saved = store.read(r.operationId).record;
       assert.equal(saved.attempts.length, 1);
       assert.notEqual(saved.state, "completed");
-      assert.throws(() => LegalEvidenceCapture.create(store, r, "offline"));
+      assert.throws(() =>
+        LegalEvidenceCapture.create(store, r, "offline", () => structuredClone(r.runtime)),
+      );
     },
   );
 }
@@ -316,7 +322,9 @@ test("final effort mismatch is held before any HTTP call", async ({ onTestFinish
   assert.equal(result.stopReason, "error");
   assert.equal(calls, 0);
   assert.equal(store.read(r.operationId).record.attempts.length, 0);
-  assert.throws(() => LegalEvidenceCapture.create(store, r, "offline"));
+  assert.throws(() =>
+    LegalEvidenceCapture.create(store, r, "offline", () => structuredClone(r.runtime)),
+  );
 });
 test("uncertain request storage consumes logical operation without sending or replaying", async ({
   onTestFinished,
@@ -335,5 +343,7 @@ test("uncertain request storage consumes logical operation without sending or re
   assert.equal(result.stopReason, "error");
   assert.equal(calls, 0);
   store.commit = commit;
-  assert.throws(() => LegalEvidenceCapture.create(store, r, "offline"));
+  assert.throws(() =>
+    LegalEvidenceCapture.create(store, r, "offline", () => structuredClone(r.runtime)),
+  );
 });

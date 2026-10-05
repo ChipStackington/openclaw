@@ -9,6 +9,7 @@ import {
   reserveLegalEvidenceIngress,
   type EvidencePeer,
 } from "../../agents/legal-evidence/gateway.js";
+import { readCurrentLegalEvidenceRuntime } from "../../agents/legal-evidence/runtime.js";
 import { EngineEvidenceStore } from "../../agents/legal-evidence/store.js";
 import type { CaptureRequest } from "../../agents/legal-evidence/types.js";
 import {
@@ -211,16 +212,18 @@ function dispatchAgentRunFromGateway(params: {
           payload,
         },
       });
-      // Bridge A: feed the completed top-level task to the Judge sink (fire-and-forget).
-      maybeEmitOutcome({
-        sink: params.sink,
-        spawnedBy: params.spawnedBy,
-        suppressOutcomeEmit: params.suppressOutcomeEmit,
-        agentId: params.emitAgentId,
-        task: params.ingressOpts.message,
-        result,
-        runId: params.runId,
-      });
+      // Strict legal assignments and outputs stay inside their private evidence flow.
+      if (!params.ingressOpts.legalEvidenceCapture) {
+        maybeEmitOutcome({
+          sink: params.sink,
+          spawnedBy: params.spawnedBy,
+          suppressOutcomeEmit: params.suppressOutcomeEmit,
+          agentId: params.emitAgentId,
+          task: params.ingressOpts.message,
+          result,
+          runId: params.runId,
+        });
+      }
       // Send a second res frame (same id) so TS clients with expectFinal can wait.
       // Swift clients will typically treat the first res as the result and ignore this.
       params.respond(true, payload, undefined, { runId: params.runId });
@@ -246,6 +249,12 @@ function dispatchAgentRunFromGateway(params: {
         runId: params.runId,
         error: formatForLog(err),
       });
+    })
+    .finally(() => {
+      const operationId = params.ingressOpts.legalEvidenceCapture?.binding.operationId;
+      if (operationId) {
+        params.context.legalEvidenceActiveOperationIds?.delete(operationId);
+      }
     });
 }
 
@@ -314,7 +323,7 @@ export const agentHandlers: GatewayRequestHandlers = {
       : undefined;
     if (hasLegalEvidence) {
       try {
-        if (!request.legalEvidence || !context.legalEvidenceRuntime || !legalEvidencePeer) {
+        if (!request.legalEvidence || !context.legalEvidenceReadRuntime || !legalEvidencePeer) {
           throw new Error("legal-evidence-runtime-unavailable");
         }
         legalEvidenceStore = new EngineEvidenceStore(
@@ -325,7 +334,7 @@ export const agentHandlers: GatewayRequestHandlers = {
           descriptor: request.legalEvidence,
           params: p,
           peer: legalEvidencePeer,
-          runtime: context.legalEvidenceRuntime,
+          runtime: readCurrentLegalEvidenceRuntime(context.legalEvidenceReadRuntime),
           activeOperationIds: context.legalEvidenceActiveOperationIds,
         });
         if (existing) {
@@ -742,7 +751,7 @@ export const agentHandlers: GatewayRequestHandlers = {
       try {
         if (
           !request.legalEvidence ||
-          !context.legalEvidenceRuntime ||
+          !context.legalEvidenceReadRuntime ||
           !legalEvidenceStore ||
           !legalEvidencePeer
         ) {
@@ -753,7 +762,7 @@ export const agentHandlers: GatewayRequestHandlers = {
           descriptor: request.legalEvidence,
           params: p,
           peer: legalEvidencePeer,
-          runtime: context.legalEvidenceRuntime,
+          runtime: readCurrentLegalEvidenceRuntime(context.legalEvidenceReadRuntime),
           activeOperationIds: context.legalEvidenceActiveOperationIds,
         });
         if (existing) {
@@ -772,7 +781,7 @@ export const agentHandlers: GatewayRequestHandlers = {
           descriptor: request.legalEvidence,
           params: p,
           peer: legalEvidencePeer,
-          runtime: context.legalEvidenceRuntime,
+          runtime: readCurrentLegalEvidenceRuntime(context.legalEvidenceReadRuntime),
           activeOperationIds: context.legalEvidenceActiveOperationIds,
         });
         if (!reservation.created) {
@@ -790,6 +799,7 @@ export const agentHandlers: GatewayRequestHandlers = {
             legalEvidenceStore,
             reservation.envelope,
             request.message,
+            context.legalEvidenceReadRuntime,
           );
         } catch (error) {
           try {

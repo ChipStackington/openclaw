@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import fixtures from "../../agents/legal-evidence/development-fixtures.json" with { type: "json" };
 import { legalEvidenceHandlers } from "./legal-evidence.js";
 import type { GatewayClient, GatewayRequestContext } from "./types.js";
 
@@ -77,4 +78,20 @@ describe("legal evidence gateway RPCs", () => {
       expect.objectContaining({ code: expect.any(String) }),
     );
   });
+});
+
+it("cached runtime metadata cannot advertise a current measured capability", async () => {
+  const respond = vi.fn();
+  await legalEvidenceHandlers["agent.evidence.capabilities"]({
+    params: {},
+    client: client(),
+    isWebchatConnect: () => false,
+    respond,
+    req: { type: "req", id: "development-static-pins", method: "agent.evidence.capabilities" },
+    context: {
+      ...context(),
+      legalEvidenceRuntime: fixtures.records.engine.record.runtime,
+    } as GatewayRequestContext,
+  });
+  expect(respond.mock.calls[0][0]).toBe(false);
 });

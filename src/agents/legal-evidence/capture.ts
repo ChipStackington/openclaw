@@ -4,6 +4,7 @@ import path from "node:path";
 import type { StreamFn } from "@mariozechner/pi-agent-core";
 import { checkedDirectory, readCheckedFile } from "./files.js";
 import { bytesHash, evidenceJsonV1, parseEvidenceJson } from "./hash.js";
+import { assertCurrentLegalEvidenceRuntime, type LegalEvidenceRuntimeReader } from "./runtime.js";
 import { EngineEvidenceStore } from "./store.js";
 import type {
   DecisionEvent,
@@ -200,6 +201,7 @@ export class LegalEvidenceCapture {
     private readonly store: EngineEvidenceStore,
     envelope: EngineEnvelope,
     private readonly submittedAssignment: string,
+    private readonly readRuntime: LegalEvidenceRuntimeReader,
   ) {
     this.envelope = envelope;
   }
@@ -207,6 +209,7 @@ export class LegalEvidenceCapture {
     store: EngineEvidenceStore,
     record: EngineReceipt,
     submittedAssignment: string,
+    readRuntime: LegalEvidenceRuntimeReader,
   ): LegalEvidenceCapture {
     if (typeof submittedAssignment !== "string" || submittedAssignment.length === 0) {
       throw new Error("legal-evidence-assignment-binding");
@@ -218,16 +221,23 @@ export class LegalEvidenceCapture {
     ) {
       throw new Error("legal-evidence-assignment-binding");
     }
+    assertCurrentLegalEvidenceRuntime(readRuntime, record.runtime);
     const reservation = store.reserve(record);
     if (!reservation.created) {
       throw new Error("legal-evidence-operation-already-reserved");
     }
-    return LegalEvidenceCapture.fromReserved(store, reservation.envelope, submittedAssignment);
+    return LegalEvidenceCapture.fromReserved(
+      store,
+      reservation.envelope,
+      submittedAssignment,
+      readRuntime,
+    );
   }
   static fromReserved(
     store: EngineEvidenceStore,
     envelope: EngineEnvelope,
     submittedAssignment: string,
+    readRuntime: LegalEvidenceRuntimeReader,
   ): LegalEvidenceCapture {
     if (typeof submittedAssignment !== "string" || submittedAssignment.length === 0) {
       throw new Error("legal-evidence-assignment-binding");
@@ -243,7 +253,8 @@ export class LegalEvidenceCapture {
     ) {
       throw new Error("legal-evidence-assignment-binding");
     }
-    return new LegalEvidenceCapture(store, envelope, submittedAssignment);
+    assertCurrentLegalEvidenceRuntime(readRuntime, envelope.record.runtime);
+    return new LegalEvidenceCapture(store, envelope, submittedAssignment, readRuntime);
   }
   get binding() {
     return structuredClone(this.envelope.record.binding);
@@ -390,6 +401,7 @@ export class LegalEvidenceCapture {
   readonly observer = {
     onRequest: async (request: WireRequest): Promise<void> =>
       this.guard(() => {
+        assertCurrentLegalEvidenceRuntime(this.readRuntime, this.envelope.record.runtime);
         if (this.reserved || this.envelope.record.attempts.length || this.runnerCount !== 1) {
           this.deny();
         }
@@ -668,6 +680,7 @@ export class LegalEvidenceCapture {
       record.holdReason = "none";
       this.event(record, "sealed");
       record.endedAt = new Date().toISOString();
+      assertCurrentLegalEvidenceRuntime(this.readRuntime, record.runtime);
       this.save(record);
     });
   }

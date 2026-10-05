@@ -12,7 +12,7 @@ import {
 import fixtures from "./development-fixtures.json" with { type: "json" };
 import { bytesHash, evidenceHash } from "./hash.js";
 import { EngineEvidenceStore } from "./store.js";
-import type { EngineReceipt, ExecutionSummary } from "./types.js";
+import type { EngineReceipt, ExecutionSummary, RuntimeIdentity } from "./types.js";
 const clean: ExecutionSummary = {
   aborted: false,
   compactions: 0,
@@ -80,7 +80,9 @@ function setup(onFinished: (fn: () => void) => void, submittedAssignment = "offl
   return {
     store,
     r,
-    capture: LegalEvidenceCapture.create(store, r, submittedAssignment),
+    capture: LegalEvidenceCapture.create(store, r, submittedAssignment, () =>
+      structuredClone(r.runtime),
+    ),
   };
 }
 const request = {
@@ -108,7 +110,9 @@ test("capture reserves exact bytes durably before send, never refunds across res
   assert.equal(saved.attempts.length, 1);
   assert.equal(saved.attempts[0].state, "send-intent");
   assert.equal(store.readBlob(saved.attempts[0].requestBody).toString(), request.body);
-  assert.throws(() => LegalEvidenceCapture.create(store, r, "offline"));
+  assert.throws(() =>
+    LegalEvidenceCapture.create(store, r, "offline", () => structuredClone(r.runtime)),
+  );
   await assert.rejects(() => capture.observer.onRequest(request));
   assert.equal(store.read(r.operationId).record.attempts.length, 1);
 });
@@ -243,11 +247,17 @@ test("capture creation binds assignment bytes to the ingress prompt hash", async
   onTestFinished(() => fs.rmSync(root, { recursive: true, force: true }));
   const store = new EngineEvidenceStore(root),
     r = prepared(store);
-  assert.throws(() => LegalEvidenceCapture.create(store, r, "changed assignment"));
+  assert.throws(() =>
+    LegalEvidenceCapture.create(store, r, "changed assignment", () => structuredClone(r.runtime)),
+  );
   assert.equal(fs.existsSync(path.join(root, "operations", `${r.operationId}.json`)), false);
   const overLimit = "x".repeat(1_000_001),
     oversized = prepared(store, overLimit);
-  assert.throws(() => LegalEvidenceCapture.create(store, oversized, overLimit));
+  assert.throws(() =>
+    LegalEvidenceCapture.create(store, oversized, overLimit, () =>
+      structuredClone(oversized.runtime),
+    ),
+  );
   assert.equal(
     fs.existsSync(path.join(root, "operations", `${oversized.operationId}.json`)),
     false,
@@ -261,7 +271,9 @@ test("capture creation rejects a submitted assignment that cannot round-trip as 
   const store = new EngineEvidenceStore(root);
   for (const assignment of ["high-\uD800", "low-\uDC00"]) {
     const r = prepared(store, assignment);
-    assert.throws(() => LegalEvidenceCapture.create(store, r, assignment));
+    assert.throws(() =>
+      LegalEvidenceCapture.create(store, r, assignment, () => structuredClone(r.runtime)),
+    );
     assert.equal(fs.existsSync(path.join(root, "operations", `${r.operationId}.json`)), false);
   }
 });
@@ -429,3 +441,39 @@ test("runner summaries refuse all forbidden effects", async ({ onTestFinished })
     assert.throws(() => capture.finishRunner({ ...clean, [key]: key === "aborted" ? true : 1 }));
   }
 });
+
+// Real byte changes in disposable development material must be observed at use.
+for (const boundary of ["send", "seal"] as const) {
+  test(`current runtime material drift refuses at ${boundary}`, async ({ onTestFinished }) => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "legal-astra-material-"));
+    onTestFinished(() => fs.rmSync(root, { recursive: true, force: true }));
+    const materialFile = path.join(root, "DEVELOPMENT-adapter.js");
+    fs.writeFileSync(materialFile, "development adapter original");
+    const store = new EngineEvidenceStore(path.join(root, "evidence"));
+    const r = prepared(store);
+    r.runtime.adapterContentHash = bytesHash(fs.readFileSync(materialFile));
+    r.binding.engineAdapterContentHash = r.runtime.adapterContentHash;
+    r.bindingHash = evidenceHash(r.binding);
+    const readRuntime = (): RuntimeIdentity => ({
+      ...r.runtime,
+      adapterContentHash: bytesHash(fs.readFileSync(materialFile)),
+    });
+    const capture = LegalEvidenceCapture.create(store, r, "offline", readRuntime);
+    capture.candidate("openai-codex", "gpt-6.1-sol", "high");
+    capture.runnerStarted();
+    if (boundary === "send") {
+      fs.writeFileSync(materialFile, "development adapter changed");
+      await assert.rejects(() => capture.observer.onRequest(request));
+      assert.equal(store.read(r.operationId).record.attempts.length, 0);
+    } else {
+      await capture.observer.onRequest(request);
+      await capture.observer.onResponse({ status: 200, contentType: "text/event-stream" });
+      await capture.observer.onChunk(frame());
+      await capture.observer.onTerminal(frame());
+      await capture.observer.onComplete({ text, stopReason: "stop", toolCalls: 0 });
+      fs.writeFileSync(materialFile, "development adapter changed");
+      assert.throws(() => capture.finishRunner(clean));
+      assert.notEqual(store.read(r.operationId).record.state, "completed");
+    }
+  });
+}

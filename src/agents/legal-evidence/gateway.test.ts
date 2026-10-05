@@ -382,7 +382,7 @@ test("evidence reads require operator.read and only expose operation-manifest bl
 
 test("missing measured runtime makes capabilities unavailable instead of inventing pins", () => {
   assert.equal(getLegalEvidenceCapabilities(undefined), undefined);
-  const capabilities = getLegalEvidenceCapabilities(runtime);
+  const capabilities = getLegalEvidenceCapabilities(() => structuredClone(runtime));
   assert.equal(capabilities?.available, true);
   assert.deepEqual(capabilities?.runtime, runtime);
 });
