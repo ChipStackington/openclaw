@@ -19,6 +19,8 @@ function keyHas(sessionKey: string | undefined, marker: string): boolean {
 }
 
 export function isEligibleRun(ctx: RunCtx): boolean {
+  // Never import organization memory or export legal evidence to its extractor.
+  if (keyHas(ctx.sessionKey, "legal")) return false;
   if (keyHas(ctx.sessionKey, "subagent")) return false;
   if (keyHas(ctx.sessionKey, "cron")) return false;
   if (ctx.messageProvider === "sms" || keyHas(ctx.sessionKey, "sms")) return false;

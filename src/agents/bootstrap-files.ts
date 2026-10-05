@@ -1,4 +1,5 @@
 import type { OpenClawConfig } from "../config/config.js";
+import { isLegalSessionKey } from "../sessions/session-key-utils.js";
 import { getOrLoadBootstrapFiles } from "./bootstrap-cache.js";
 import { applyBootstrapHookOverrides } from "./bootstrap-hooks.js";
 import type { EmbeddedContextFile } from "./pi-embedded-helpers.js";
@@ -72,6 +73,10 @@ export async function resolveBootstrapFilesForRun(params: {
   runKind?: BootstrapContextRunKind;
 }): Promise<WorkspaceBootstrapFile[]> {
   const sessionKey = params.sessionKey ?? params.sessionId;
+  // Legal context comes exclusively from the authenticated product request.
+  if (isLegalSessionKey(sessionKey)) {
+    return [];
+  }
   const rawFiles = params.sessionKey
     ? await getOrLoadBootstrapFiles({
         workspaceDir: params.workspaceDir,

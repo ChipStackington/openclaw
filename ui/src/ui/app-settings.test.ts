@@ -8,6 +8,9 @@ type SettingsHost = Parameters<typeof setTabFromRoute>[0] & {
 };
 
 const createHost = (tab: Tab): SettingsHost => ({
+  embedMode: false,
+  embedUserName: "",
+  voiceEnabled: false,
   settings: {
     gatewayUrl: "",
     token: "",

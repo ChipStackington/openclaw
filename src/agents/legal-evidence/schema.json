@@ -1,0 +1,1659 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "urn:quinn-legal:evidence-design:1",
+  "title": "PROPOSED design schema: never runtime provenance by structural validity alone",
+  "description": "Draft for Astra review. Cross-field bindings, exact hashes, source/current authorization and runtime capture origin require the future trusted verifier.",
+  "definitions": {
+    "Hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "Uuid": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$"
+    },
+    "Time": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "Role": {
+      "enum": [
+        "legal-practice",
+        "legal-facts",
+        "legal-research",
+        "legal-updates",
+        "legal-drafting",
+        "legal-verification",
+        "legal-strategy"
+      ]
+    },
+    "Origin": {
+      "enum": ["runtime", "development-fixture"]
+    },
+    "Model": {
+      "enum": ["gpt-6.1-sol", "gpt-6-astra"]
+    },
+    "Effort": {
+      "enum": ["high", "medium"]
+    },
+    "Scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "tenantId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "matterId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        }
+      },
+      "required": ["tenantId", "matterId"]
+    },
+    "Expected": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "provider": {
+          "const": "openai-codex"
+        },
+        "model": {
+          "$ref": "#/definitions/Model"
+        },
+        "effort": {
+          "$ref": "#/definitions/Effort"
+        },
+        "physicalRequestCeiling": {
+          "const": 1
+        }
+      },
+      "required": ["provider", "model", "effort", "physicalRequestCeiling"]
+    },
+    "Blob": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "packet",
+            "submitted-prompt",
+            "request-body",
+            "response-stream",
+            "terminal-frame",
+            "provider-text",
+            "assembled-text",
+            "journal"
+          ]
+        },
+        "sha256": {
+          "$ref": "#/definitions/Hash"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 16000000
+        },
+        "encoding": {
+          "enum": ["utf8", "binary"]
+        }
+      },
+      "required": ["kind", "sha256", "bytes", "encoding"],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "packet"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "bytes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000
+              },
+              "encoding": {
+                "const": "utf8"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "submitted-prompt"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "bytes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000
+              },
+              "encoding": {
+                "const": "utf8"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "request-body"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "bytes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 2000000
+              },
+              "encoding": {
+                "const": "utf8"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "response-stream"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "bytes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 16000000
+              },
+              "encoding": {
+                "const": "binary"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "terminal-frame"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "bytes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 16000000
+              },
+              "encoding": {
+                "const": "binary"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "provider-text"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "bytes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000
+              },
+              "encoding": {
+                "const": "utf8"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "assembled-text"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "bytes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000
+              },
+              "encoding": {
+                "const": "utf8"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "journal"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "bytes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 512000
+              },
+              "encoding": {
+                "const": "utf8"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "AcceptancePolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "const": 2
+        },
+        "evidenceSchema": {
+          "const": 1
+        },
+        "modelPolicyHash": {
+          "$ref": "#/definitions/Hash"
+        },
+        "reviewedImplementationHash": {
+          "$ref": "#/definitions/Hash"
+        }
+      },
+      "required": ["version", "evidenceSchema", "modelPolicyHash", "reviewedImplementationHash"]
+    },
+    "DispatchBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "operationId": {
+          "$ref": "#/definitions/Uuid"
+        },
+        "sessionKey": {
+          "type": "string",
+          "maxLength": 180,
+          "pattern": "^agent:legal-(practice|facts|research|updates|drafting|verification|strategy):legal:[a-f0-9-]{36}$"
+        },
+        "runId": {
+          "$ref": "#/definitions/Uuid"
+        },
+        "taskId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "claimId": {
+          "$ref": "#/definitions/Uuid"
+        },
+        "reservationRevision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "scope": {
+          "$ref": "#/definitions/Scope"
+        },
+        "requesterId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "dispatchActorId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "roleId": {
+          "$ref": "#/definitions/Role"
+        },
+        "runtimeHash": {
+          "$ref": "#/definitions/Hash"
+        },
+        "engineInstallationId": {
+          "$ref": "#/definitions/Uuid"
+        },
+        "engineBuildHash": {
+          "$ref": "#/definitions/Hash"
+        },
+        "contractHash": {
+          "$ref": "#/definitions/Hash"
+        },
+        "modelPolicyHash": {
+          "$ref": "#/definitions/Hash"
+        },
+        "wholeContextHash": {
+          "$ref": "#/definitions/Hash"
+        },
+        "taskContextHash": {
+          "$ref": "#/definitions/Hash"
+        },
+        "planContextHash": {
+          "$ref": "#/definitions/Hash"
+        },
+        "sourceSelectionHash": {
+          "$ref": "#/definitions/Hash"
+        },
+        "sourceIdentitiesHash": {
+          "$ref": "#/definitions/Hash"
+        },
+        "dependencySnapshotHash": {
+          "$ref": "#/definitions/Hash"
+        },
+        "packetHash": {
+          "$ref": "#/definitions/Hash"
+        },
+        "submittedPromptHash": {
+          "$ref": "#/definitions/Hash"
+        },
+        "expected": {
+          "$ref": "#/definitions/Expected"
+        },
+        "deadlineAt": {
+          "$ref": "#/definitions/Time"
+        },
+        "engineRolePolicyHash": {
+          "$ref": "#/definitions/Hash"
+        },
+        "reviewedImplementationHash": {
+          "$ref": "#/definitions/Hash"
+        },
+        "engineRevision": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}$"
+        },
+        "engineAdapterVersion": {
+          "const": "0.57.1"
+        },
+        "engineAdapterPatchHash": {
+          "$ref": "#/definitions/Hash"
+        },
+        "engineAdapterContentHash": {
+          "$ref": "#/definitions/Hash"
+        }
+      },
+      "required": [
+        "version",
+        "operationId",
+        "sessionKey",
+        "runId",
+        "taskId",
+        "claimId",
+        "reservationRevision",
+        "scope",
+        "requesterId",
+        "dispatchActorId",
+        "roleId",
+        "runtimeHash",
+        "engineInstallationId",
+        "engineBuildHash",
+        "contractHash",
+        "modelPolicyHash",
+        "wholeContextHash",
+        "taskContextHash",
+        "planContextHash",
+        "sourceSelectionHash",
+        "sourceIdentitiesHash",
+        "dependencySnapshotHash",
+        "packetHash",
+        "submittedPromptHash",
+        "expected",
+        "deadlineAt",
+        "engineRolePolicyHash",
+        "reviewedImplementationHash",
+        "engineRevision",
+        "engineAdapterVersion",
+        "engineAdapterPatchHash",
+        "engineAdapterContentHash"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "roleId": {
+                "enum": ["legal-verification", "legal-strategy"]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "expected": {
+                "properties": {
+                  "model": {
+                    "const": "gpt-6-astra"
+                  },
+                  "effort": {
+                    "const": "medium"
+                  }
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "expected": {
+                "properties": {
+                  "model": {
+                    "const": "gpt-6.1-sol"
+                  },
+                  "effort": {
+                    "const": "high"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "CaptureRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema": {
+          "const": "quinn-legal-model-evidence-v1"
+        },
+        "modelPolicy": {
+          "const": "quinn-legal-single-request-v1"
+        },
+        "binding": {
+          "$ref": "#/definitions/DispatchBinding"
+        },
+        "bindingHash": {
+          "$ref": "#/definitions/Hash"
+        }
+      },
+      "required": ["schema", "modelPolicy", "binding", "bindingHash"]
+    },
+    "RuntimeIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "installationId": {
+          "$ref": "#/definitions/Uuid"
+        },
+        "engineRevision": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}$"
+        },
+        "engineBuildHash": {
+          "$ref": "#/definitions/Hash"
+        },
+        "adapterVersion": {
+          "const": "0.57.1"
+        },
+        "adapterPatchHash": {
+          "$ref": "#/definitions/Hash"
+        },
+        "rolePolicyHash": {
+          "$ref": "#/definitions/Hash"
+        },
+        "adapterContentHash": {
+          "$ref": "#/definitions/Hash"
+        }
+      },
+      "required": [
+        "installationId",
+        "engineRevision",
+        "engineBuildHash",
+        "adapterVersion",
+        "adapterPatchHash",
+        "rolePolicyHash",
+        "adapterContentHash"
+      ]
+    },
+    "ClientBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "deviceId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "clientRole": {
+          "const": "operator"
+        },
+        "clientMode": {
+          "const": "cli"
+        },
+        "deviceBindingHash": {
+          "$ref": "#/definitions/Hash"
+        }
+      },
+      "required": ["deviceId", "clientRole", "clientMode", "deviceBindingHash"]
+    },
+    "DecisionEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64
+        },
+        "at": {
+          "$ref": "#/definitions/Time"
+        },
+        "kind": {
+          "enum": [
+            "candidate-selected",
+            "candidate-skipped",
+            "runner-started",
+            "wire-reserved",
+            "send-intent",
+            "response-observed",
+            "terminal-observed",
+            "retry-denied",
+            "compaction-denied",
+            "policy-held",
+            "capture-failed",
+            "sealed"
+          ]
+        },
+        "candidateIndex": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 63
+        },
+        "runnerIndex": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 63
+        },
+        "wireOrdinal": {
+          "const": 1
+        },
+        "reason": {
+          "enum": [
+            "none",
+            "provider-failed",
+            "incomplete",
+            "aborted",
+            "transport-unknown",
+            "unsupported-transport",
+            "metadata-mismatch",
+            "output-mismatch",
+            "policy-drift",
+            "capture-io",
+            "evidence-limit",
+            "retry-denied"
+          ]
+        }
+      },
+      "required": ["seq", "at", "kind"]
+    },
+    "Terminal": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "event": {
+          "enum": ["response.completed", "response.done"]
+        },
+        "responseId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "model": {
+          "$ref": "#/definitions/Model"
+        },
+        "status": {
+          "const": "completed"
+        },
+        "observedEffort": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Effort"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "frame": {
+          "$ref": "#/definitions/Blob"
+        }
+      },
+      "required": ["event", "responseId", "model", "status", "observedEffort", "frame"]
+    },
+    "Usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "inputTokens": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "outputTokens": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cachedInputTokens": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "totalTokens": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": ["inputTokens", "outputTokens", "cachedInputTokens", "totalTokens"]
+    },
+    "ExecutionSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "aborted": {
+          "type": "boolean"
+        },
+        "compactions": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 64
+        },
+        "toolCalls": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 64
+        },
+        "messagingSends": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 64
+        },
+        "continuations": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 64
+        },
+        "thinkingDowngrades": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 64
+        },
+        "authRotations": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 64
+        }
+      },
+      "required": [
+        "aborted",
+        "compactions",
+        "toolCalls",
+        "messagingSends",
+        "continuations",
+        "thinkingDowngrades",
+        "authRotations"
+      ]
+    },
+    "WireAttempt": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/Uuid"
+        },
+        "ordinal": {
+          "const": 1
+        },
+        "candidateIndex": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 63
+        },
+        "runnerIndex": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 63
+        },
+        "providerInvocationIndex": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 63
+        },
+        "adapterHttpAttemptIndex": {
+          "const": 0
+        },
+        "provider": {
+          "const": "openai-codex"
+        },
+        "model": {
+          "$ref": "#/definitions/Model"
+        },
+        "effort": {
+          "$ref": "#/definitions/Effort"
+        },
+        "transport": {
+          "const": "sse"
+        },
+        "requestBody": {
+          "$ref": "#/definitions/Blob"
+        },
+        "preparedAt": {
+          "$ref": "#/definitions/Time"
+        },
+        "sendIntentAt": {
+          "$ref": "#/definitions/Time"
+        },
+        "responseObservedAt": {
+          "$ref": "#/definitions/Time"
+        },
+        "httpStatus": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 599
+        },
+        "state": {
+          "enum": ["send-intent", "completed", "failed", "unknown"]
+        },
+        "responseStream": {
+          "$ref": "#/definitions/Blob"
+        },
+        "terminal": {
+          "$ref": "#/definitions/Terminal"
+        },
+        "projectionPolicy": {
+          "const": "single-assistant-output-v1"
+        },
+        "providerText": {
+          "$ref": "#/definitions/Blob"
+        },
+        "assembledText": {
+          "$ref": "#/definitions/Blob"
+        },
+        "adapterStopReason": {
+          "const": "stop"
+        },
+        "usage": {
+          "$ref": "#/definitions/Usage"
+        },
+        "endpointClass": {
+          "const": "chatgpt-codex-backend"
+        },
+        "method": {
+          "const": "POST"
+        }
+      },
+      "required": [
+        "id",
+        "ordinal",
+        "candidateIndex",
+        "runnerIndex",
+        "providerInvocationIndex",
+        "adapterHttpAttemptIndex",
+        "provider",
+        "model",
+        "effort",
+        "transport",
+        "requestBody",
+        "preparedAt",
+        "sendIntentAt",
+        "state",
+        "endpointClass",
+        "method"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "const": "completed"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "responseObservedAt",
+              "httpStatus",
+              "responseStream",
+              "terminal",
+              "projectionPolicy",
+              "providerText",
+              "assembledText",
+              "adapterStopReason",
+              "usage"
+            ],
+            "properties": {
+              "httpStatus": {
+                "const": 200
+              },
+              "candidateIndex": {
+                "const": 0
+              },
+              "runnerIndex": {
+                "const": 0
+              },
+              "providerInvocationIndex": {
+                "const": 0
+              }
+            }
+          }
+        }
+      ]
+    },
+    "EngineReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema": {
+          "const": "quinn-legal-engine-evidence-v1"
+        },
+        "version": {
+          "const": 1
+        },
+        "captureOrigin": {
+          "$ref": "#/definitions/Origin"
+        },
+        "operationId": {
+          "$ref": "#/definitions/Uuid"
+        },
+        "runtime": {
+          "$ref": "#/definitions/RuntimeIdentity"
+        },
+        "client": {
+          "$ref": "#/definitions/ClientBinding"
+        },
+        "binding": {
+          "$ref": "#/definitions/DispatchBinding"
+        },
+        "bindingHash": {
+          "$ref": "#/definitions/Hash"
+        },
+        "preparedAt": {
+          "$ref": "#/definitions/Time"
+        },
+        "endedAt": {
+          "$ref": "#/definitions/Time"
+        },
+        "state": {
+          "enum": ["prepared", "running", "completed", "failed", "incomplete", "unknown"]
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/DecisionEvent"
+          },
+          "minItems": 0,
+          "maxItems": 64
+        },
+        "attempts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/WireAttempt"
+          },
+          "minItems": 0,
+          "maxItems": 1
+        },
+        "selectedAttemptId": {
+          "$ref": "#/definitions/Uuid"
+        },
+        "journal": {
+          "$ref": "#/definitions/Blob"
+        },
+        "holdReason": {
+          "enum": [
+            "none",
+            "provider-failed",
+            "incomplete",
+            "aborted",
+            "transport-unknown",
+            "unsupported-transport",
+            "metadata-mismatch",
+            "output-mismatch",
+            "policy-drift",
+            "capture-io",
+            "evidence-limit",
+            "retry-denied"
+          ]
+        },
+        "executionSummary": {
+          "$ref": "#/definitions/ExecutionSummary"
+        }
+      },
+      "required": [
+        "schema",
+        "version",
+        "captureOrigin",
+        "operationId",
+        "runtime",
+        "client",
+        "binding",
+        "bindingHash",
+        "preparedAt",
+        "state",
+        "events",
+        "attempts",
+        "journal"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "const": "completed"
+              }
+            }
+          },
+          "then": {
+            "required": ["endedAt", "selectedAttemptId", "executionSummary"],
+            "properties": {
+              "attempts": {
+                "minItems": 1,
+                "items": {
+                  "properties": {
+                    "state": {
+                      "const": "completed"
+                    }
+                  }
+                }
+              },
+              "holdReason": {
+                "const": "none"
+              },
+              "executionSummary": {
+                "properties": {
+                  "aborted": {
+                    "const": false
+                  },
+                  "compactions": {
+                    "const": 0
+                  },
+                  "toolCalls": {
+                    "const": 0
+                  },
+                  "messagingSends": {
+                    "const": 0
+                  },
+                  "continuations": {
+                    "const": 0
+                  },
+                  "thinkingDowngrades": {
+                    "const": 0
+                  },
+                  "authRotations": {
+                    "const": 0
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "EngineEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "record": {
+          "$ref": "#/definitions/EngineReceipt"
+        },
+        "hash": {
+          "$ref": "#/definitions/Hash"
+        }
+      },
+      "required": ["record", "hash"]
+    },
+    "ApplicationOperation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "const": 2
+        },
+        "id": {
+          "$ref": "#/definitions/Uuid"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "captureOrigin": {
+          "$ref": "#/definitions/Origin"
+        },
+        "binding": {
+          "$ref": "#/definitions/DispatchBinding"
+        },
+        "bindingHash": {
+          "$ref": "#/definitions/Hash"
+        },
+        "preparedAt": {
+          "$ref": "#/definitions/Time"
+        },
+        "phase": {
+          "enum": ["prepared", "bound", "submitted", "uncertain", "completed", "failed"]
+        },
+        "preparedMaterial": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Blob"
+          },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "engineReceiptHash": {
+          "$ref": "#/definitions/Hash"
+        },
+        "importedMaterial": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Blob"
+          },
+          "minItems": 0,
+          "maxItems": 8
+        },
+        "assembledText": {
+          "$ref": "#/definitions/Blob"
+        },
+        "completedAt": {
+          "$ref": "#/definitions/Time"
+        },
+        "holdReason": {
+          "enum": [
+            "none",
+            "missing-evidence",
+            "authorization-lost",
+            "source-stale",
+            "contract-stale",
+            "output-invalid",
+            "provider-held",
+            "transport-unknown",
+            "storage-unavailable"
+          ]
+        }
+      },
+      "required": [
+        "version",
+        "id",
+        "revision",
+        "captureOrigin",
+        "binding",
+        "bindingHash",
+        "preparedAt",
+        "phase",
+        "preparedMaterial"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "phase": {
+                "const": "completed"
+              }
+            }
+          },
+          "then": {
+            "required": ["engineReceiptHash", "importedMaterial", "assembledText", "completedAt"],
+            "properties": {
+              "importedMaterial": {
+                "minItems": 1
+              },
+              "holdReason": {
+                "const": "none"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "AuthorizationObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "actorId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "permission": {
+          "const": "approvals:decide"
+        },
+        "checkedAt": {
+          "$ref": "#/definitions/Time"
+        }
+      },
+      "required": ["actorId", "permission", "checkedAt"]
+    },
+    "AcceptanceReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema": {
+          "const": "quinn-legal-acceptance-v1"
+        },
+        "version": {
+          "const": 1
+        },
+        "captureOrigin": {
+          "$ref": "#/definitions/Origin"
+        },
+        "scope": {
+          "$ref": "#/definitions/Scope"
+        },
+        "runId": {
+          "$ref": "#/definitions/Uuid"
+        },
+        "taskId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "claimId": {
+          "$ref": "#/definitions/Uuid"
+        },
+        "operationId": {
+          "$ref": "#/definitions/Uuid"
+        },
+        "dispatchBindingHash": {
+          "$ref": "#/definitions/Hash"
+        },
+        "engineReceiptHash": {
+          "$ref": "#/definitions/Hash"
+        },
+        "operationRecordHash": {
+          "$ref": "#/definitions/Hash"
+        },
+        "contractHash": {
+          "$ref": "#/definitions/Hash"
+        },
+        "modelPolicyHash": {
+          "$ref": "#/definitions/Hash"
+        },
+        "wholeContextHash": {
+          "$ref": "#/definitions/Hash"
+        },
+        "taskContextHash": {
+          "$ref": "#/definitions/Hash"
+        },
+        "planContextHash": {
+          "$ref": "#/definitions/Hash"
+        },
+        "sourceSelectionHash": {
+          "$ref": "#/definitions/Hash"
+        },
+        "sourceIdentitiesHash": {
+          "$ref": "#/definitions/Hash"
+        },
+        "dependencySnapshotHash": {
+          "$ref": "#/definitions/Hash"
+        },
+        "packetHash": {
+          "$ref": "#/definitions/Hash"
+        },
+        "submittedPromptHash": {
+          "$ref": "#/definitions/Hash"
+        },
+        "rawStreamHash": {
+          "$ref": "#/definitions/Hash"
+        },
+        "terminalFrameHash": {
+          "$ref": "#/definitions/Hash"
+        },
+        "providerTextHash": {
+          "$ref": "#/definitions/Hash"
+        },
+        "assembledTextHash": {
+          "$ref": "#/definitions/Hash"
+        },
+        "normalizedOutputHash": {
+          "$ref": "#/definitions/Hash"
+        },
+        "outputStatus": {
+          "enum": ["completed", "partial"]
+        },
+        "expected": {
+          "$ref": "#/definitions/Expected"
+        },
+        "terminal": {
+          "$ref": "#/definitions/Terminal"
+        },
+        "acceptedBy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "authorization": {
+          "$ref": "#/definitions/AuthorizationObservation"
+        },
+        "acceptedAt": {
+          "$ref": "#/definitions/Time"
+        },
+        "committedRunRevision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "physicalReservations": {
+          "const": 1
+        },
+        "crossRunEligible": {
+          "type": "boolean"
+        },
+        "reviewedImplementationHash": {
+          "$ref": "#/definitions/Hash"
+        }
+      },
+      "required": [
+        "schema",
+        "version",
+        "captureOrigin",
+        "scope",
+        "runId",
+        "taskId",
+        "claimId",
+        "operationId",
+        "dispatchBindingHash",
+        "engineReceiptHash",
+        "operationRecordHash",
+        "contractHash",
+        "modelPolicyHash",
+        "wholeContextHash",
+        "taskContextHash",
+        "planContextHash",
+        "sourceSelectionHash",
+        "sourceIdentitiesHash",
+        "dependencySnapshotHash",
+        "packetHash",
+        "submittedPromptHash",
+        "rawStreamHash",
+        "terminalFrameHash",
+        "providerTextHash",
+        "assembledTextHash",
+        "normalizedOutputHash",
+        "outputStatus",
+        "expected",
+        "terminal",
+        "acceptedBy",
+        "authorization",
+        "acceptedAt",
+        "committedRunRevision",
+        "physicalReservations",
+        "crossRunEligible",
+        "reviewedImplementationHash"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "anyOf": [
+              {
+                "properties": {
+                  "outputStatus": {
+                    "const": "partial"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "captureOrigin": {
+                    "const": "development-fixture"
+                  }
+                }
+              }
+            ]
+          },
+          "then": {
+            "properties": {
+              "crossRunEligible": {
+                "const": false
+              }
+            }
+          }
+        }
+      ]
+    },
+    "AcceptanceEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "record": {
+          "$ref": "#/definitions/AcceptanceReceipt"
+        },
+        "hash": {
+          "$ref": "#/definitions/Hash"
+        }
+      },
+      "required": ["record", "hash"]
+    },
+    "EvidenceCapabilityParams": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {},
+      "required": []
+    },
+    "EvidenceGetParams": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operationId": {
+          "$ref": "#/definitions/Uuid"
+        }
+      },
+      "required": ["operationId"]
+    },
+    "EvidenceReadParams": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operationId": {
+          "$ref": "#/definitions/Uuid"
+        },
+        "blobHash": {
+          "$ref": "#/definitions/Hash"
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 16000000
+        },
+        "length": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 128000
+        }
+      },
+      "required": ["operationId", "blobHash", "offset", "length"]
+    },
+    "EvidenceReadResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operationId": {
+          "$ref": "#/definitions/Uuid"
+        },
+        "blobHash": {
+          "$ref": "#/definitions/Hash"
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 16000000
+        },
+        "length": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 128000
+        },
+        "totalBytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 16000000
+        },
+        "dataBase64": {
+          "type": "string",
+          "maxLength": 170668,
+          "pattern": "^[A-Za-z0-9+/]*={0,2}$"
+        }
+      },
+      "required": ["operationId", "blobHash", "offset", "length", "totalBytes", "dataBase64"]
+    },
+    "Capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "available": {
+          "type": "boolean"
+        },
+        "runtime": {
+          "$ref": "#/definitions/RuntimeIdentity"
+        },
+        "modelPolicy": {
+          "const": "quinn-legal-single-request-v1"
+        },
+        "physicalRequestCeiling": {
+          "const": 1
+        },
+        "transport": {
+          "const": "sse"
+        },
+        "holdReason": {
+          "enum": ["none", "capture-unavailable", "unclean-state", "unsupported-build"]
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "available",
+        "runtime",
+        "modelPolicy",
+        "physicalRequestCeiling",
+        "transport",
+        "holdReason"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "available": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "holdReason": {
+                "const": "none"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "holdReason": {
+                "not": {
+                  "const": "none"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "EvidenceGetResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operationId": {
+          "$ref": "#/definitions/Uuid"
+        },
+        "state": {
+          "enum": [
+            "unavailable",
+            "prepared",
+            "running",
+            "completed",
+            "failed",
+            "incomplete",
+            "unknown"
+          ]
+        },
+        "envelope": {
+          "$ref": "#/definitions/EngineEnvelope"
+        }
+      },
+      "required": ["operationId", "state"],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "const": "completed"
+              }
+            }
+          },
+          "then": {
+            "required": ["envelope"],
+            "properties": {
+              "envelope": {
+                "properties": {
+                  "record": {
+                    "properties": {
+                      "state": {
+                        "const": "completed"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ReviewedImplementation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema": {
+          "const": "quinn-legal-reviewed-implementation-v1"
+        },
+        "version": {
+          "const": 1
+        },
+        "artifactOrigin": {
+          "enum": ["reviewed-build", "development-fixture"]
+        },
+        "engineRevision": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}$"
+        },
+        "engineBuildHash": {
+          "$ref": "#/definitions/Hash"
+        },
+        "adapterVersion": {
+          "const": "0.57.1"
+        },
+        "adapterPatchHash": {
+          "$ref": "#/definitions/Hash"
+        },
+        "adapterContentHash": {
+          "$ref": "#/definitions/Hash"
+        }
+      },
+      "required": [
+        "schema",
+        "version",
+        "artifactOrigin",
+        "engineRevision",
+        "engineBuildHash",
+        "adapterVersion",
+        "adapterPatchHash",
+        "adapterContentHash"
+      ]
+    },
+    "ReviewedImplementationEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "record": {
+          "$ref": "#/definitions/ReviewedImplementation"
+        },
+        "hash": {
+          "$ref": "#/definitions/Hash"
+        }
+      },
+      "required": ["record", "hash"]
+    }
+  },
+  "oneOf": [
+    {
+      "$ref": "#/definitions/CaptureRequest"
+    },
+    {
+      "$ref": "#/definitions/EngineEnvelope"
+    },
+    {
+      "$ref": "#/definitions/ApplicationOperation"
+    },
+    {
+      "$ref": "#/definitions/AcceptanceEnvelope"
+    },
+    {
+      "$ref": "#/definitions/EvidenceCapabilityParams"
+    },
+    {
+      "$ref": "#/definitions/EvidenceGetParams"
+    },
+    {
+      "$ref": "#/definitions/EvidenceReadParams"
+    },
+    {
+      "$ref": "#/definitions/EvidenceReadResult"
+    },
+    {
+      "$ref": "#/definitions/Capabilities"
+    },
+    {
+      "$ref": "#/definitions/EvidenceGetResult"
+    },
+    {
+      "$ref": "#/definitions/ReviewedImplementationEnvelope"
+    }
+  ]
+}

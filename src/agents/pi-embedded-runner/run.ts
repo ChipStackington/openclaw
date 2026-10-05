@@ -10,6 +10,7 @@ import { generateSecureToken } from "../../infra/secure-random.js";
 import { getGlobalHookRunner } from "../../plugins/hook-runner-global.js";
 import type { PluginHookBeforeAgentStartResult } from "../../plugins/types.js";
 import { enqueueCommandInLane } from "../../process/command-queue.js";
+import { isLegalSessionKey } from "../../sessions/session-key-utils.js";
 import { isMarkdownCapableMessageChannel } from "../../utils/message-channel.js";
 import { resolveOpenClawAgentDir } from "../agent-paths.js";
 import { hasConfiguredModelFallbacks } from "../agent-scope.js";
@@ -311,7 +312,7 @@ export async function runEmbeddedPiAgent(
       // fields if present. New hook takes precedence when both are set.
       let modelResolveOverride: { providerOverride?: string; modelOverride?: string } | undefined;
       let legacyBeforeAgentStartResult: PluginHookBeforeAgentStartResult | undefined;
-      const hookRunner = getGlobalHookRunner();
+      const hookRunner = isLegalSessionKey(params.sessionKey) ? undefined : getGlobalHookRunner();
       const hookCtx = {
         agentId: workspaceResolution.agentId,
         sessionKey: params.sessionKey,

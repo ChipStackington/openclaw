@@ -6,7 +6,10 @@ const emit = { task: "do X", output: "did X", runId: "run-1", agentId: "jack" };
 
 describe("emitOutcomeToJudgeSink", () => {
   it("POSTs the correct url, headers, and body", async () => {
-    const fetchImpl = vi.fn(async () => new Response(null, { status: 201 }));
+    const fetchImpl = vi.fn(
+      async (_url: string | URL | Request, _init?: RequestInit) =>
+        new Response(null, { status: 201 }),
+    );
     await emitOutcomeToJudgeSink(emit, sink, { fetchImpl: fetchImpl as unknown as typeof fetch });
     expect(fetchImpl).toHaveBeenCalledOnce();
     const [url, init] = fetchImpl.mock.calls[0] as [string, RequestInit];
@@ -24,8 +27,15 @@ describe("emitOutcomeToJudgeSink", () => {
   });
 
   it("defaults department to 'unknown' when sink has none", async () => {
-    const fetchImpl = vi.fn(async () => new Response(null, { status: 201 }));
-    await emitOutcomeToJudgeSink(emit, { url: "u", token: "t" }, { fetchImpl: fetchImpl as unknown as typeof fetch });
+    const fetchImpl = vi.fn(
+      async (_url: string | URL | Request, _init?: RequestInit) =>
+        new Response(null, { status: 201 }),
+    );
+    await emitOutcomeToJudgeSink(
+      emit,
+      { url: "u", token: "t" },
+      { fetchImpl: fetchImpl as unknown as typeof fetch },
+    );
     const body = JSON.parse((fetchImpl.mock.calls[0][1] as RequestInit).body as string);
     expect(body.department).toBe("unknown");
   });
@@ -49,7 +59,9 @@ describe("emitOutcomeToJudgeSink", () => {
 
 describe("extractOutputText", () => {
   it("joins non-empty payload texts", () => {
-    expect(extractOutputText({ payloads: [{ text: "a" }, { text: " " }, { text: "b" }] })).toBe("a\nb");
+    expect(extractOutputText({ payloads: [{ text: "a" }, { text: " " }, { text: "b" }] })).toBe(
+      "a\nb",
+    );
   });
   it("returns '' for missing/empty payloads", () => {
     expect(extractOutputText(undefined)).toBe("");

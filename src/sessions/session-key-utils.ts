@@ -130,3 +130,8 @@ export function resolveThreadParentSessionKey(
   const parent = raw.slice(0, idx).trim();
   return parent ? parent : null;
 }
+
+/** Product legal requests are stateless analysis, never general operator sessions. */
+export function isLegalSessionKey(sessionKey: string | undefined | null): boolean {
+  return parseAgentSessionKey(sessionKey)?.rest.startsWith("legal:") ?? false;
+}

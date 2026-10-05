@@ -1,0 +1,1098 @@
+{
+  "developmentFixturesOnly": true,
+  "notice": "Labeled development fixtures with placeholder build/material hashes and no underlying runtime blobs. Canonical hashes of these fixture records establish internal identity only. No reviewed implementation approval or runtime eligibility is supplied.",
+  "records": {
+    "capture": {
+      "schema": "quinn-legal-model-evidence-v1",
+      "modelPolicy": "quinn-legal-single-request-v1",
+      "binding": {
+        "version": 1,
+        "operationId": "00000000-0000-4000-8000-000000000001",
+        "sessionKey": "agent:legal-facts:legal:00000000-0000-4000-8000-000000000001",
+        "runId": "00000000-0000-4000-8000-000000000002",
+        "taskId": "facts-1",
+        "claimId": "00000000-0000-4000-8000-000000000003",
+        "reservationRevision": 1,
+        "scope": {
+          "tenantId": "development-tenant",
+          "matterId": "development-matter"
+        },
+        "requesterId": "development-requester",
+        "dispatchActorId": "development-actor",
+        "roleId": "legal-facts",
+        "runtimeHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "engineInstallationId": "00000000-0000-4000-8000-000000000004",
+        "engineBuildHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "contractHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "modelPolicyHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "wholeContextHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "taskContextHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "planContextHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "sourceSelectionHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "sourceIdentitiesHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "dependencySnapshotHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "packetHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "submittedPromptHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "expected": {
+          "provider": "openai-codex",
+          "model": "gpt-6.1-sol",
+          "effort": "high",
+          "physicalRequestCeiling": 1
+        },
+        "deadlineAt": "2026-10-04T00:05:00.000Z",
+        "engineRolePolicyHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "reviewedImplementationHash": "8c563c4cb09f5f782c4593670fc0ad61a083c622d09aebef9d2a7a5e66106934",
+        "engineRevision": "e46fb1d11e4bf588755fa5060ae07af1f15e8ac0",
+        "engineAdapterVersion": "0.57.1",
+        "engineAdapterPatchHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "engineAdapterContentHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "bindingHash": "2d6c6b33a4ed4613edf8fb9c8fc969d294dbe51121b2349e748e2293bbf8cb3a"
+    },
+    "engine": {
+      "record": {
+        "schema": "quinn-legal-engine-evidence-v1",
+        "version": 1,
+        "captureOrigin": "development-fixture",
+        "operationId": "00000000-0000-4000-8000-000000000001",
+        "runtime": {
+          "installationId": "00000000-0000-4000-8000-000000000004",
+          "engineRevision": "e46fb1d11e4bf588755fa5060ae07af1f15e8ac0",
+          "engineBuildHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "adapterVersion": "0.57.1",
+          "adapterPatchHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "rolePolicyHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "adapterContentHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        "client": {
+          "deviceId": "DEVELOPMENT-DEVICE",
+          "clientRole": "operator",
+          "clientMode": "cli",
+          "deviceBindingHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "binding": {
+          "version": 1,
+          "operationId": "00000000-0000-4000-8000-000000000001",
+          "sessionKey": "agent:legal-facts:legal:00000000-0000-4000-8000-000000000001",
+          "runId": "00000000-0000-4000-8000-000000000002",
+          "taskId": "facts-1",
+          "claimId": "00000000-0000-4000-8000-000000000003",
+          "reservationRevision": 1,
+          "scope": {
+            "tenantId": "development-tenant",
+            "matterId": "development-matter"
+          },
+          "requesterId": "development-requester",
+          "dispatchActorId": "development-actor",
+          "roleId": "legal-facts",
+          "runtimeHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "engineInstallationId": "00000000-0000-4000-8000-000000000004",
+          "engineBuildHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "contractHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "modelPolicyHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "wholeContextHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "taskContextHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "planContextHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "sourceSelectionHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "sourceIdentitiesHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "dependencySnapshotHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "packetHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "submittedPromptHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "expected": {
+            "provider": "openai-codex",
+            "model": "gpt-6.1-sol",
+            "effort": "high",
+            "physicalRequestCeiling": 1
+          },
+          "deadlineAt": "2026-10-04T00:05:00.000Z",
+          "engineRolePolicyHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "reviewedImplementationHash": "8c563c4cb09f5f782c4593670fc0ad61a083c622d09aebef9d2a7a5e66106934",
+          "engineRevision": "e46fb1d11e4bf588755fa5060ae07af1f15e8ac0",
+          "engineAdapterVersion": "0.57.1",
+          "engineAdapterPatchHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "engineAdapterContentHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        "bindingHash": "2d6c6b33a4ed4613edf8fb9c8fc969d294dbe51121b2349e748e2293bbf8cb3a",
+        "preparedAt": "2026-10-04T00:00:00.000Z",
+        "endedAt": "2026-10-04T00:00:00.000Z",
+        "state": "completed",
+        "events": [
+          {
+            "seq": 1,
+            "at": "2026-10-04T00:00:00.000Z",
+            "kind": "sealed"
+          }
+        ],
+        "attempts": [
+          {
+            "id": "00000000-0000-4000-8000-000000000005",
+            "ordinal": 1,
+            "candidateIndex": 0,
+            "runnerIndex": 0,
+            "providerInvocationIndex": 0,
+            "adapterHttpAttemptIndex": 0,
+            "provider": "openai-codex",
+            "model": "gpt-6.1-sol",
+            "effort": "high",
+            "transport": "sse",
+            "requestBody": {
+              "kind": "request-body",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bytes": 10,
+              "encoding": "utf8"
+            },
+            "preparedAt": "2026-10-04T00:00:00.000Z",
+            "sendIntentAt": "2026-10-04T00:00:00.000Z",
+            "responseObservedAt": "2026-10-04T00:00:00.000Z",
+            "httpStatus": 200,
+            "state": "completed",
+            "responseStream": {
+              "kind": "response-stream",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bytes": 10,
+              "encoding": "binary"
+            },
+            "terminal": {
+              "event": "response.completed",
+              "responseId": "DEVELOPMENT-RESPONSE",
+              "model": "gpt-6.1-sol",
+              "status": "completed",
+              "observedEffort": null,
+              "frame": {
+                "kind": "terminal-frame",
+                "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "bytes": 10,
+                "encoding": "binary"
+              }
+            },
+            "projectionPolicy": "single-assistant-output-v1",
+            "providerText": {
+              "kind": "provider-text",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bytes": 10,
+              "encoding": "utf8"
+            },
+            "assembledText": {
+              "kind": "assembled-text",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bytes": 10,
+              "encoding": "utf8"
+            },
+            "adapterStopReason": "stop",
+            "usage": {
+              "inputTokens": null,
+              "outputTokens": null,
+              "cachedInputTokens": null,
+              "totalTokens": null
+            },
+            "endpointClass": "chatgpt-codex-backend",
+            "method": "POST"
+          }
+        ],
+        "selectedAttemptId": "00000000-0000-4000-8000-000000000005",
+        "journal": {
+          "kind": "journal",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "bytes": 10,
+          "encoding": "utf8"
+        },
+        "holdReason": "none",
+        "executionSummary": {
+          "aborted": false,
+          "compactions": 0,
+          "toolCalls": 0,
+          "messagingSends": 0,
+          "continuations": 0,
+          "thinkingDowngrades": 0,
+          "authRotations": 0
+        }
+      },
+      "hash": "2631e700eff7f1a34fec53ad12138b320b9f66b05e57abbbaed81870f44077eb"
+    },
+    "application": {
+      "version": 2,
+      "id": "00000000-0000-4000-8000-000000000001",
+      "revision": 3,
+      "captureOrigin": "development-fixture",
+      "binding": {
+        "version": 1,
+        "operationId": "00000000-0000-4000-8000-000000000001",
+        "sessionKey": "agent:legal-facts:legal:00000000-0000-4000-8000-000000000001",
+        "runId": "00000000-0000-4000-8000-000000000002",
+        "taskId": "facts-1",
+        "claimId": "00000000-0000-4000-8000-000000000003",
+        "reservationRevision": 1,
+        "scope": {
+          "tenantId": "development-tenant",
+          "matterId": "development-matter"
+        },
+        "requesterId": "development-requester",
+        "dispatchActorId": "development-actor",
+        "roleId": "legal-facts",
+        "runtimeHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "engineInstallationId": "00000000-0000-4000-8000-000000000004",
+        "engineBuildHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "contractHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "modelPolicyHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "wholeContextHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "taskContextHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "planContextHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "sourceSelectionHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "sourceIdentitiesHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "dependencySnapshotHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "packetHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "submittedPromptHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "expected": {
+          "provider": "openai-codex",
+          "model": "gpt-6.1-sol",
+          "effort": "high",
+          "physicalRequestCeiling": 1
+        },
+        "deadlineAt": "2026-10-04T00:05:00.000Z",
+        "engineRolePolicyHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "reviewedImplementationHash": "8c563c4cb09f5f782c4593670fc0ad61a083c622d09aebef9d2a7a5e66106934",
+        "engineRevision": "e46fb1d11e4bf588755fa5060ae07af1f15e8ac0",
+        "engineAdapterVersion": "0.57.1",
+        "engineAdapterPatchHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "engineAdapterContentHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "bindingHash": "2d6c6b33a4ed4613edf8fb9c8fc969d294dbe51121b2349e748e2293bbf8cb3a",
+      "preparedAt": "2026-10-04T00:00:00.000Z",
+      "phase": "completed",
+      "preparedMaterial": [
+        {
+          "kind": "packet",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "bytes": 10,
+          "encoding": "utf8"
+        },
+        {
+          "kind": "submitted-prompt",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "bytes": 10,
+          "encoding": "utf8"
+        }
+      ],
+      "engineReceiptHash": "2631e700eff7f1a34fec53ad12138b320b9f66b05e57abbbaed81870f44077eb",
+      "importedMaterial": [
+        {
+          "kind": "request-body",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "bytes": 10,
+          "encoding": "utf8"
+        },
+        {
+          "kind": "response-stream",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "bytes": 10,
+          "encoding": "binary"
+        },
+        {
+          "kind": "terminal-frame",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "bytes": 10,
+          "encoding": "binary"
+        },
+        {
+          "kind": "provider-text",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "bytes": 10,
+          "encoding": "utf8"
+        },
+        {
+          "kind": "assembled-text",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "bytes": 10,
+          "encoding": "utf8"
+        },
+        {
+          "kind": "journal",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "bytes": 10,
+          "encoding": "utf8"
+        }
+      ],
+      "assembledText": {
+        "kind": "assembled-text",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "bytes": 10,
+        "encoding": "utf8"
+      },
+      "completedAt": "2026-10-04T00:00:00.000Z",
+      "holdReason": "none"
+    },
+    "acceptance": {
+      "record": {
+        "schema": "quinn-legal-acceptance-v1",
+        "version": 1,
+        "captureOrigin": "development-fixture",
+        "scope": {
+          "tenantId": "development-tenant",
+          "matterId": "development-matter"
+        },
+        "runId": "00000000-0000-4000-8000-000000000002",
+        "taskId": "facts-1",
+        "claimId": "00000000-0000-4000-8000-000000000003",
+        "operationId": "00000000-0000-4000-8000-000000000001",
+        "dispatchBindingHash": "2d6c6b33a4ed4613edf8fb9c8fc969d294dbe51121b2349e748e2293bbf8cb3a",
+        "engineReceiptHash": "2631e700eff7f1a34fec53ad12138b320b9f66b05e57abbbaed81870f44077eb",
+        "operationRecordHash": "4f8179d1e51af94021b1679d12d98d1753d72d7949d406dea8724bf80c2feae5",
+        "contractHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "modelPolicyHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "wholeContextHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "taskContextHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "planContextHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "sourceSelectionHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "sourceIdentitiesHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "dependencySnapshotHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "packetHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "submittedPromptHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "rawStreamHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "terminalFrameHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "providerTextHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "assembledTextHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "normalizedOutputHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "outputStatus": "completed",
+        "expected": {
+          "provider": "openai-codex",
+          "model": "gpt-6.1-sol",
+          "effort": "high",
+          "physicalRequestCeiling": 1
+        },
+        "terminal": {
+          "event": "response.completed",
+          "responseId": "DEVELOPMENT-RESPONSE",
+          "model": "gpt-6.1-sol",
+          "status": "completed",
+          "observedEffort": null,
+          "frame": {
+            "kind": "terminal-frame",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "bytes": 10,
+            "encoding": "binary"
+          }
+        },
+        "acceptedBy": "development-actor",
+        "authorization": {
+          "actorId": "development-actor",
+          "permission": "approvals:decide",
+          "checkedAt": "2026-10-04T00:00:00.000Z"
+        },
+        "acceptedAt": "2026-10-04T00:00:00.000Z",
+        "committedRunRevision": 4,
+        "physicalReservations": 1,
+        "crossRunEligible": false,
+        "reviewedImplementationHash": "8c563c4cb09f5f782c4593670fc0ad61a083c622d09aebef9d2a7a5e66106934"
+      },
+      "hash": "bddbdc304dd8237a564fe59e7b0e1237c663270f29f4932e19650004a1977dba"
+    },
+    "capabilityParams": {},
+    "get": {
+      "operationId": "00000000-0000-4000-8000-000000000001"
+    },
+    "read": {
+      "operationId": "00000000-0000-4000-8000-000000000001",
+      "blobHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "offset": 0,
+      "length": 11
+    },
+    "chunk": {
+      "operationId": "00000000-0000-4000-8000-000000000001",
+      "blobHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "offset": 0,
+      "length": 11,
+      "totalBytes": 11,
+      "dataBase64": "REVWRUxPUE1FTlQ="
+    },
+    "capabilities": {
+      "schemaVersion": 1,
+      "available": false,
+      "runtime": {
+        "installationId": "00000000-0000-4000-8000-000000000004",
+        "engineRevision": "e46fb1d11e4bf588755fa5060ae07af1f15e8ac0",
+        "engineBuildHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "adapterVersion": "0.57.1",
+        "adapterPatchHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "rolePolicyHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "adapterContentHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "modelPolicy": "quinn-legal-single-request-v1",
+      "physicalRequestCeiling": 1,
+      "transport": "sse",
+      "holdReason": "capture-unavailable"
+    },
+    "getResult": {
+      "operationId": "00000000-0000-4000-8000-000000000001",
+      "state": "completed",
+      "envelope": {
+        "record": {
+          "schema": "quinn-legal-engine-evidence-v1",
+          "version": 1,
+          "captureOrigin": "development-fixture",
+          "operationId": "00000000-0000-4000-8000-000000000001",
+          "runtime": {
+            "installationId": "00000000-0000-4000-8000-000000000004",
+            "engineRevision": "e46fb1d11e4bf588755fa5060ae07af1f15e8ac0",
+            "engineBuildHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "adapterVersion": "0.57.1",
+            "adapterPatchHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "rolePolicyHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "adapterContentHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          },
+          "client": {
+            "deviceId": "DEVELOPMENT-DEVICE",
+            "clientRole": "operator",
+            "clientMode": "cli",
+            "deviceBindingHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "binding": {
+            "version": 1,
+            "operationId": "00000000-0000-4000-8000-000000000001",
+            "sessionKey": "agent:legal-facts:legal:00000000-0000-4000-8000-000000000001",
+            "runId": "00000000-0000-4000-8000-000000000002",
+            "taskId": "facts-1",
+            "claimId": "00000000-0000-4000-8000-000000000003",
+            "reservationRevision": 1,
+            "scope": {
+              "tenantId": "development-tenant",
+              "matterId": "development-matter"
+            },
+            "requesterId": "development-requester",
+            "dispatchActorId": "development-actor",
+            "roleId": "legal-facts",
+            "runtimeHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "engineInstallationId": "00000000-0000-4000-8000-000000000004",
+            "engineBuildHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "contractHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "modelPolicyHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "wholeContextHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "taskContextHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "planContextHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "sourceSelectionHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "sourceIdentitiesHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "dependencySnapshotHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "packetHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "submittedPromptHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "expected": {
+              "provider": "openai-codex",
+              "model": "gpt-6.1-sol",
+              "effort": "high",
+              "physicalRequestCeiling": 1
+            },
+            "deadlineAt": "2026-10-04T00:05:00.000Z",
+            "engineRolePolicyHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "reviewedImplementationHash": "8c563c4cb09f5f782c4593670fc0ad61a083c622d09aebef9d2a7a5e66106934",
+            "engineRevision": "e46fb1d11e4bf588755fa5060ae07af1f15e8ac0",
+            "engineAdapterVersion": "0.57.1",
+            "engineAdapterPatchHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "engineAdapterContentHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          },
+          "bindingHash": "2d6c6b33a4ed4613edf8fb9c8fc969d294dbe51121b2349e748e2293bbf8cb3a",
+          "preparedAt": "2026-10-04T00:00:00.000Z",
+          "endedAt": "2026-10-04T00:00:00.000Z",
+          "state": "completed",
+          "events": [
+            {
+              "seq": 1,
+              "at": "2026-10-04T00:00:00.000Z",
+              "kind": "sealed"
+            }
+          ],
+          "attempts": [
+            {
+              "id": "00000000-0000-4000-8000-000000000005",
+              "ordinal": 1,
+              "candidateIndex": 0,
+              "runnerIndex": 0,
+              "providerInvocationIndex": 0,
+              "adapterHttpAttemptIndex": 0,
+              "provider": "openai-codex",
+              "model": "gpt-6.1-sol",
+              "effort": "high",
+              "transport": "sse",
+              "requestBody": {
+                "kind": "request-body",
+                "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "bytes": 10,
+                "encoding": "utf8"
+              },
+              "preparedAt": "2026-10-04T00:00:00.000Z",
+              "sendIntentAt": "2026-10-04T00:00:00.000Z",
+              "responseObservedAt": "2026-10-04T00:00:00.000Z",
+              "httpStatus": 200,
+              "state": "completed",
+              "responseStream": {
+                "kind": "response-stream",
+                "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "bytes": 10,
+                "encoding": "binary"
+              },
+              "terminal": {
+                "event": "response.completed",
+                "responseId": "DEVELOPMENT-RESPONSE",
+                "model": "gpt-6.1-sol",
+                "status": "completed",
+                "observedEffort": null,
+                "frame": {
+                  "kind": "terminal-frame",
+                  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "bytes": 10,
+                  "encoding": "binary"
+                }
+              },
+              "projectionPolicy": "single-assistant-output-v1",
+              "providerText": {
+                "kind": "provider-text",
+                "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "bytes": 10,
+                "encoding": "utf8"
+              },
+              "assembledText": {
+                "kind": "assembled-text",
+                "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "bytes": 10,
+                "encoding": "utf8"
+              },
+              "adapterStopReason": "stop",
+              "usage": {
+                "inputTokens": null,
+                "outputTokens": null,
+                "cachedInputTokens": null,
+                "totalTokens": null
+              },
+              "endpointClass": "chatgpt-codex-backend",
+              "method": "POST"
+            }
+          ],
+          "selectedAttemptId": "00000000-0000-4000-8000-000000000005",
+          "journal": {
+            "kind": "journal",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "bytes": 10,
+            "encoding": "utf8"
+          },
+          "holdReason": "none",
+          "executionSummary": {
+            "aborted": false,
+            "compactions": 0,
+            "toolCalls": 0,
+            "messagingSends": 0,
+            "continuations": 0,
+            "thinkingDowngrades": 0,
+            "authRotations": 0
+          }
+        },
+        "hash": "2631e700eff7f1a34fec53ad12138b320b9f66b05e57abbbaed81870f44077eb"
+      }
+    },
+    "reviewedImplementation": {
+      "record": {
+        "schema": "quinn-legal-reviewed-implementation-v1",
+        "version": 1,
+        "artifactOrigin": "development-fixture",
+        "engineRevision": "e46fb1d11e4bf588755fa5060ae07af1f15e8ac0",
+        "engineBuildHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "adapterVersion": "0.57.1",
+        "adapterPatchHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "adapterContentHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "hash": "8c563c4cb09f5f782c4593670fc0ad61a083c622d09aebef9d2a7a5e66106934"
+    }
+  },
+  "implementationDriftCases": [
+    {
+      "name": "capability:adapterPatchHash",
+      "phase": "capability",
+      "field": "adapterPatchHash",
+      "reviewedImplementationHash": "8c563c4cb09f5f782c4593670fc0ad61a083c622d09aebef9d2a7a5e66106934",
+      "savedOperationRecord": "application",
+      "observedRuntime": {
+        "installationId": "00000000-0000-4000-8000-000000000004",
+        "engineRevision": "e46fb1d11e4bf588755fa5060ae07af1f15e8ac0",
+        "engineBuildHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "adapterVersion": "0.57.1",
+        "adapterPatchHash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "rolePolicyHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "adapterContentHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "expectedFutureVerifier": "hold",
+      "executableRuntimeTest": false
+    },
+    {
+      "name": "capability:adapterContentHash",
+      "phase": "capability",
+      "field": "adapterContentHash",
+      "reviewedImplementationHash": "8c563c4cb09f5f782c4593670fc0ad61a083c622d09aebef9d2a7a5e66106934",
+      "savedOperationRecord": "application",
+      "observedRuntime": {
+        "installationId": "00000000-0000-4000-8000-000000000004",
+        "engineRevision": "e46fb1d11e4bf588755fa5060ae07af1f15e8ac0",
+        "engineBuildHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "adapterVersion": "0.57.1",
+        "adapterPatchHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "rolePolicyHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "adapterContentHash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      },
+      "expectedFutureVerifier": "hold",
+      "executableRuntimeTest": false
+    },
+    {
+      "name": "pre-send:adapterPatchHash",
+      "phase": "pre-send",
+      "field": "adapterPatchHash",
+      "reviewedImplementationHash": "8c563c4cb09f5f782c4593670fc0ad61a083c622d09aebef9d2a7a5e66106934",
+      "savedOperationRecord": "application",
+      "observedRuntime": {
+        "installationId": "00000000-0000-4000-8000-000000000004",
+        "engineRevision": "e46fb1d11e4bf588755fa5060ae07af1f15e8ac0",
+        "engineBuildHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "adapterVersion": "0.57.1",
+        "adapterPatchHash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "rolePolicyHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "adapterContentHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "expectedFutureVerifier": "hold",
+      "executableRuntimeTest": false
+    },
+    {
+      "name": "pre-send:adapterContentHash",
+      "phase": "pre-send",
+      "field": "adapterContentHash",
+      "reviewedImplementationHash": "8c563c4cb09f5f782c4593670fc0ad61a083c622d09aebef9d2a7a5e66106934",
+      "savedOperationRecord": "application",
+      "observedRuntime": {
+        "installationId": "00000000-0000-4000-8000-000000000004",
+        "engineRevision": "e46fb1d11e4bf588755fa5060ae07af1f15e8ac0",
+        "engineBuildHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "adapterVersion": "0.57.1",
+        "adapterPatchHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "rolePolicyHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "adapterContentHash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      },
+      "expectedFutureVerifier": "hold",
+      "executableRuntimeTest": false
+    },
+    {
+      "name": "sealing:adapterPatchHash",
+      "phase": "sealing",
+      "field": "adapterPatchHash",
+      "reviewedImplementationHash": "8c563c4cb09f5f782c4593670fc0ad61a083c622d09aebef9d2a7a5e66106934",
+      "savedOperationRecord": "application",
+      "observedRuntime": {
+        "installationId": "00000000-0000-4000-8000-000000000004",
+        "engineRevision": "e46fb1d11e4bf588755fa5060ae07af1f15e8ac0",
+        "engineBuildHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "adapterVersion": "0.57.1",
+        "adapterPatchHash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "rolePolicyHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "adapterContentHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "expectedFutureVerifier": "hold",
+      "executableRuntimeTest": false
+    },
+    {
+      "name": "sealing:adapterContentHash",
+      "phase": "sealing",
+      "field": "adapterContentHash",
+      "reviewedImplementationHash": "8c563c4cb09f5f782c4593670fc0ad61a083c622d09aebef9d2a7a5e66106934",
+      "savedOperationRecord": "application",
+      "observedRuntime": {
+        "installationId": "00000000-0000-4000-8000-000000000004",
+        "engineRevision": "e46fb1d11e4bf588755fa5060ae07af1f15e8ac0",
+        "engineBuildHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "adapterVersion": "0.57.1",
+        "adapterPatchHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "rolePolicyHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "adapterContentHash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      },
+      "expectedFutureVerifier": "hold",
+      "executableRuntimeTest": false
+    },
+    {
+      "name": "import:adapterPatchHash",
+      "phase": "import",
+      "field": "adapterPatchHash",
+      "reviewedImplementationHash": "8c563c4cb09f5f782c4593670fc0ad61a083c622d09aebef9d2a7a5e66106934",
+      "savedOperationRecord": "application",
+      "observedRuntime": {
+        "installationId": "00000000-0000-4000-8000-000000000004",
+        "engineRevision": "e46fb1d11e4bf588755fa5060ae07af1f15e8ac0",
+        "engineBuildHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "adapterVersion": "0.57.1",
+        "adapterPatchHash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "rolePolicyHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "adapterContentHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "expectedFutureVerifier": "hold",
+      "executableRuntimeTest": false
+    },
+    {
+      "name": "import:adapterContentHash",
+      "phase": "import",
+      "field": "adapterContentHash",
+      "reviewedImplementationHash": "8c563c4cb09f5f782c4593670fc0ad61a083c622d09aebef9d2a7a5e66106934",
+      "savedOperationRecord": "application",
+      "observedRuntime": {
+        "installationId": "00000000-0000-4000-8000-000000000004",
+        "engineRevision": "e46fb1d11e4bf588755fa5060ae07af1f15e8ac0",
+        "engineBuildHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "adapterVersion": "0.57.1",
+        "adapterPatchHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "rolePolicyHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "adapterContentHash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      },
+      "expectedFutureVerifier": "hold",
+      "executableRuntimeTest": false
+    },
+    {
+      "name": "recovery-after-restart:adapterPatchHash",
+      "phase": "recovery-after-restart",
+      "field": "adapterPatchHash",
+      "reviewedImplementationHash": "8c563c4cb09f5f782c4593670fc0ad61a083c622d09aebef9d2a7a5e66106934",
+      "savedOperationRecord": "application",
+      "observedRuntime": {
+        "installationId": "00000000-0000-4000-8000-000000000004",
+        "engineRevision": "e46fb1d11e4bf588755fa5060ae07af1f15e8ac0",
+        "engineBuildHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "adapterVersion": "0.57.1",
+        "adapterPatchHash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "rolePolicyHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "adapterContentHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "expectedFutureVerifier": "hold",
+      "executableRuntimeTest": false
+    },
+    {
+      "name": "recovery-after-restart:adapterContentHash",
+      "phase": "recovery-after-restart",
+      "field": "adapterContentHash",
+      "reviewedImplementationHash": "8c563c4cb09f5f782c4593670fc0ad61a083c622d09aebef9d2a7a5e66106934",
+      "savedOperationRecord": "application",
+      "observedRuntime": {
+        "installationId": "00000000-0000-4000-8000-000000000004",
+        "engineRevision": "e46fb1d11e4bf588755fa5060ae07af1f15e8ac0",
+        "engineBuildHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "adapterVersion": "0.57.1",
+        "adapterPatchHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "rolePolicyHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "adapterContentHash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      },
+      "expectedFutureVerifier": "hold",
+      "executableRuntimeTest": false
+    },
+    {
+      "name": "mapping-read:adapterPatchHash",
+      "phase": "mapping-read",
+      "field": "adapterPatchHash",
+      "reviewedImplementationHash": "8c563c4cb09f5f782c4593670fc0ad61a083c622d09aebef9d2a7a5e66106934",
+      "savedOperationRecord": "application",
+      "observedRuntime": {
+        "installationId": "00000000-0000-4000-8000-000000000004",
+        "engineRevision": "e46fb1d11e4bf588755fa5060ae07af1f15e8ac0",
+        "engineBuildHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "adapterVersion": "0.57.1",
+        "adapterPatchHash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "rolePolicyHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "adapterContentHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "expectedFutureVerifier": "hold",
+      "executableRuntimeTest": false
+    },
+    {
+      "name": "mapping-read:adapterContentHash",
+      "phase": "mapping-read",
+      "field": "adapterContentHash",
+      "reviewedImplementationHash": "8c563c4cb09f5f782c4593670fc0ad61a083c622d09aebef9d2a7a5e66106934",
+      "savedOperationRecord": "application",
+      "observedRuntime": {
+        "installationId": "00000000-0000-4000-8000-000000000004",
+        "engineRevision": "e46fb1d11e4bf588755fa5060ae07af1f15e8ac0",
+        "engineBuildHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "adapterVersion": "0.57.1",
+        "adapterPatchHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "rolePolicyHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "adapterContentHash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      },
+      "expectedFutureVerifier": "hold",
+      "executableRuntimeTest": false
+    }
+  ],
+  "recoveryCases": {
+    "beforeFirstAcceptance": {
+      "interruption": "MC complete operation saved; queue acceptance not saved",
+      "immediate": {
+        "record": {
+          "schema": "quinn-legal-acceptance-v1",
+          "version": 1,
+          "captureOrigin": "development-fixture",
+          "scope": {
+            "tenantId": "development-tenant",
+            "matterId": "development-matter"
+          },
+          "runId": "00000000-0000-4000-8000-000000000002",
+          "taskId": "facts-1",
+          "claimId": "00000000-0000-4000-8000-000000000003",
+          "operationId": "00000000-0000-4000-8000-000000000001",
+          "dispatchBindingHash": "2d6c6b33a4ed4613edf8fb9c8fc969d294dbe51121b2349e748e2293bbf8cb3a",
+          "engineReceiptHash": "2631e700eff7f1a34fec53ad12138b320b9f66b05e57abbbaed81870f44077eb",
+          "operationRecordHash": "4f8179d1e51af94021b1679d12d98d1753d72d7949d406dea8724bf80c2feae5",
+          "contractHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "modelPolicyHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "wholeContextHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "taskContextHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "planContextHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "sourceSelectionHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "sourceIdentitiesHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "dependencySnapshotHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "packetHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "submittedPromptHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "rawStreamHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "terminalFrameHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "providerTextHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "assembledTextHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "normalizedOutputHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "outputStatus": "completed",
+          "expected": {
+            "provider": "openai-codex",
+            "model": "gpt-6.1-sol",
+            "effort": "high",
+            "physicalRequestCeiling": 1
+          },
+          "terminal": {
+            "event": "response.completed",
+            "responseId": "DEVELOPMENT-RESPONSE",
+            "model": "gpt-6.1-sol",
+            "status": "completed",
+            "observedEffort": null,
+            "frame": {
+              "kind": "terminal-frame",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bytes": 10,
+              "encoding": "binary"
+            }
+          },
+          "acceptedBy": "development-actor",
+          "authorization": {
+            "actorId": "development-actor",
+            "permission": "approvals:decide",
+            "checkedAt": "2026-10-04T00:01:00.000Z"
+          },
+          "acceptedAt": "2026-10-04T00:01:00.000Z",
+          "committedRunRevision": 4,
+          "physicalReservations": 1,
+          "crossRunEligible": false,
+          "reviewedImplementationHash": "8c563c4cb09f5f782c4593670fc0ad61a083c622d09aebef9d2a7a5e66106934"
+        },
+        "hash": "a2b57224e8f72aadf4d2cf3d3388a01b4aec230948b3e972f21feb727b7530a5"
+      },
+      "recovered": {
+        "record": {
+          "schema": "quinn-legal-acceptance-v1",
+          "version": 1,
+          "captureOrigin": "development-fixture",
+          "scope": {
+            "tenantId": "development-tenant",
+            "matterId": "development-matter"
+          },
+          "runId": "00000000-0000-4000-8000-000000000002",
+          "taskId": "facts-1",
+          "claimId": "00000000-0000-4000-8000-000000000003",
+          "operationId": "00000000-0000-4000-8000-000000000001",
+          "dispatchBindingHash": "2d6c6b33a4ed4613edf8fb9c8fc969d294dbe51121b2349e748e2293bbf8cb3a",
+          "engineReceiptHash": "2631e700eff7f1a34fec53ad12138b320b9f66b05e57abbbaed81870f44077eb",
+          "operationRecordHash": "4f8179d1e51af94021b1679d12d98d1753d72d7949d406dea8724bf80c2feae5",
+          "contractHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "modelPolicyHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "wholeContextHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "taskContextHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "planContextHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "sourceSelectionHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "sourceIdentitiesHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "dependencySnapshotHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "packetHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "submittedPromptHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "rawStreamHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "terminalFrameHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "providerTextHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "assembledTextHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "normalizedOutputHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "outputStatus": "completed",
+          "expected": {
+            "provider": "openai-codex",
+            "model": "gpt-6.1-sol",
+            "effort": "high",
+            "physicalRequestCeiling": 1
+          },
+          "terminal": {
+            "event": "response.completed",
+            "responseId": "DEVELOPMENT-RESPONSE",
+            "model": "gpt-6.1-sol",
+            "status": "completed",
+            "observedEffort": null,
+            "frame": {
+              "kind": "terminal-frame",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bytes": 10,
+              "encoding": "binary"
+            }
+          },
+          "acceptedBy": "another-authorized-development-actor",
+          "authorization": {
+            "actorId": "another-authorized-development-actor",
+            "permission": "approvals:decide",
+            "checkedAt": "2026-10-04T00:06:00.000Z"
+          },
+          "acceptedAt": "2026-10-04T00:06:00.000Z",
+          "committedRunRevision": 9,
+          "physicalReservations": 1,
+          "crossRunEligible": false,
+          "reviewedImplementationHash": "8c563c4cb09f5f782c4593670fc0ad61a083c622d09aebef9d2a7a5e66106934"
+        },
+        "hash": "3a4f8bf41600be79f6bf3ae4c6bb14e1ecfe830cd54cf2abdde3929d0c7485e5"
+      },
+      "executionAndOutputHashesMustEqual": true,
+      "acceptanceHashMustEqual": false,
+      "executableRuntimeTest": false
+    },
+    "afterAcceptanceCommit": {
+      "interruption": "Queue output+acceptance committed; response lost",
+      "committed": {
+        "record": {
+          "schema": "quinn-legal-acceptance-v1",
+          "version": 1,
+          "captureOrigin": "development-fixture",
+          "scope": {
+            "tenantId": "development-tenant",
+            "matterId": "development-matter"
+          },
+          "runId": "00000000-0000-4000-8000-000000000002",
+          "taskId": "facts-1",
+          "claimId": "00000000-0000-4000-8000-000000000003",
+          "operationId": "00000000-0000-4000-8000-000000000001",
+          "dispatchBindingHash": "2d6c6b33a4ed4613edf8fb9c8fc969d294dbe51121b2349e748e2293bbf8cb3a",
+          "engineReceiptHash": "2631e700eff7f1a34fec53ad12138b320b9f66b05e57abbbaed81870f44077eb",
+          "operationRecordHash": "4f8179d1e51af94021b1679d12d98d1753d72d7949d406dea8724bf80c2feae5",
+          "contractHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "modelPolicyHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "wholeContextHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "taskContextHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "planContextHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "sourceSelectionHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "sourceIdentitiesHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "dependencySnapshotHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "packetHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "submittedPromptHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "rawStreamHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "terminalFrameHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "providerTextHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "assembledTextHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "normalizedOutputHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "outputStatus": "completed",
+          "expected": {
+            "provider": "openai-codex",
+            "model": "gpt-6.1-sol",
+            "effort": "high",
+            "physicalRequestCeiling": 1
+          },
+          "terminal": {
+            "event": "response.completed",
+            "responseId": "DEVELOPMENT-RESPONSE",
+            "model": "gpt-6.1-sol",
+            "status": "completed",
+            "observedEffort": null,
+            "frame": {
+              "kind": "terminal-frame",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bytes": 10,
+              "encoding": "binary"
+            }
+          },
+          "acceptedBy": "development-actor",
+          "authorization": {
+            "actorId": "development-actor",
+            "permission": "approvals:decide",
+            "checkedAt": "2026-10-04T00:01:00.000Z"
+          },
+          "acceptedAt": "2026-10-04T00:01:00.000Z",
+          "committedRunRevision": 4,
+          "physicalReservations": 1,
+          "crossRunEligible": false,
+          "reviewedImplementationHash": "8c563c4cb09f5f782c4593670fc0ad61a083c622d09aebef9d2a7a5e66106934"
+        },
+        "hash": "a2b57224e8f72aadf4d2cf3d3388a01b4aec230948b3e972f21feb727b7530a5"
+      },
+      "duplicateRead": {
+        "record": {
+          "schema": "quinn-legal-acceptance-v1",
+          "version": 1,
+          "captureOrigin": "development-fixture",
+          "scope": {
+            "tenantId": "development-tenant",
+            "matterId": "development-matter"
+          },
+          "runId": "00000000-0000-4000-8000-000000000002",
+          "taskId": "facts-1",
+          "claimId": "00000000-0000-4000-8000-000000000003",
+          "operationId": "00000000-0000-4000-8000-000000000001",
+          "dispatchBindingHash": "2d6c6b33a4ed4613edf8fb9c8fc969d294dbe51121b2349e748e2293bbf8cb3a",
+          "engineReceiptHash": "2631e700eff7f1a34fec53ad12138b320b9f66b05e57abbbaed81870f44077eb",
+          "operationRecordHash": "4f8179d1e51af94021b1679d12d98d1753d72d7949d406dea8724bf80c2feae5",
+          "contractHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "modelPolicyHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "wholeContextHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "taskContextHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "planContextHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "sourceSelectionHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "sourceIdentitiesHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "dependencySnapshotHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "packetHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "submittedPromptHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "rawStreamHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "terminalFrameHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "providerTextHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "assembledTextHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "normalizedOutputHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "outputStatus": "completed",
+          "expected": {
+            "provider": "openai-codex",
+            "model": "gpt-6.1-sol",
+            "effort": "high",
+            "physicalRequestCeiling": 1
+          },
+          "terminal": {
+            "event": "response.completed",
+            "responseId": "DEVELOPMENT-RESPONSE",
+            "model": "gpt-6.1-sol",
+            "status": "completed",
+            "observedEffort": null,
+            "frame": {
+              "kind": "terminal-frame",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bytes": 10,
+              "encoding": "binary"
+            }
+          },
+          "acceptedBy": "development-actor",
+          "authorization": {
+            "actorId": "development-actor",
+            "permission": "approvals:decide",
+            "checkedAt": "2026-10-04T00:01:00.000Z"
+          },
+          "acceptedAt": "2026-10-04T00:01:00.000Z",
+          "committedRunRevision": 4,
+          "physicalReservations": 1,
+          "crossRunEligible": false,
+          "reviewedImplementationHash": "8c563c4cb09f5f782c4593670fc0ad61a083c622d09aebef9d2a7a5e66106934"
+        },
+        "hash": "a2b57224e8f72aadf4d2cf3d3388a01b4aec230948b3e972f21feb727b7530a5"
+      },
+      "currentAuthorization": {
+        "actorId": "another-authorized-development-actor",
+        "permission": "approvals:decide",
+        "checkedAt": "2026-10-04T00:07:00.000Z"
+      },
+      "acceptanceHashMustEqual": true,
+      "executableRuntimeTest": false
+    }
+  }
+}

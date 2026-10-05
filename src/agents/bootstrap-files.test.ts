@@ -87,6 +87,21 @@ describe("resolveBootstrapContextForRun", () => {
   beforeEach(() => clearInternalHooks());
   afterEach(() => clearInternalHooks());
 
+  it("keeps legal runs free of workspace files and bootstrap-hook injection", async () => {
+    const workspaceDir = await makeTempWorkspace("openclaw-legal-bootstrap-");
+    await fs.writeFile(path.join(workspaceDir, "MEMORY.md"), "UNRELATED_MEMORY_CANARY");
+    let hookCalled = false;
+    registerInternalHook("agent:bootstrap", () => {
+      hookCalled = true;
+    });
+    const result = await resolveBootstrapContextForRun({
+      workspaceDir,
+      sessionKey: "agent:main:legal:synthetic-isolation",
+    });
+    expect(result).toEqual({ bootstrapFiles: [], contextFiles: [] });
+    expect(hookCalled).toBe(false);
+  });
+
   it("returns context files for hook-adjusted bootstrap files", async () => {
     registerExtraBootstrapFileHook();
 
