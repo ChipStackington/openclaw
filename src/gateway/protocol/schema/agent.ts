@@ -75,6 +75,8 @@ export const PollParamsSchema = Type.Object(
 export const AgentParamsSchema = Type.Object(
   {
     message: NonEmptyString,
+    // Validated against the pinned strict evidence schema in the authenticated ingress handler.
+    legalEvidence: Type.Optional(Type.Unknown()),
     agentId: Type.Optional(NonEmptyString),
     to: Type.Optional(Type.String()),
     replyTo: Type.Optional(Type.String()),

@@ -1,3 +1,4 @@
+import type { RuntimeIdentity } from "../../agents/legal-evidence/types.js";
 import type { ModelCatalogEntry } from "../../agents/model-catalog.js";
 import type { createDefaultDeps } from "../../cli/deps.js";
 import type { HealthSummary } from "../../commands/health.js";
@@ -17,6 +18,8 @@ type SubsystemLogger = ReturnType<typeof createSubsystemLogger>;
 export type GatewayClient = {
   connect: ConnectParams;
   connId?: string;
+  /** Set only after the connect handshake verifies the signed device proof. */
+  authenticatedDeviceId?: string;
   clientIp?: string;
   canvasHostUrl?: string;
   canvasCapability?: string;
@@ -88,6 +91,10 @@ export type GatewayRequestContext = {
     prompter: import("../../wizard/prompts.js").WizardPrompter,
   ) => Promise<void>;
   broadcastVoiceWakeChanged: (triggers: string[]) => void;
+  /** Omitted until startup can measure the exact reviewed runtime; absence is fail-closed. */
+  legalEvidenceRuntime?: RuntimeIdentity;
+  /** Process-local liveness for reserved operations; never restored across gateway restart. */
+  legalEvidenceActiveOperationIds?: Set<string>;
 };
 
 export type GatewayRequestOptions = {

@@ -16,6 +16,7 @@ import { deviceHandlers } from "./server-methods/devices.js";
 import { doctorHandlers } from "./server-methods/doctor.js";
 import { execApprovalsHandlers } from "./server-methods/exec-approvals.js";
 import { healthHandlers } from "./server-methods/health.js";
+import { legalEvidenceHandlers } from "./server-methods/legal-evidence.js";
 import { logsHandlers } from "./server-methods/logs.js";
 import { modelModeHandlers } from "./server-methods/model-mode.js";
 import { modelsHandlers } from "./server-methods/models.js";
@@ -28,10 +29,10 @@ import { systemHandlers } from "./server-methods/system.js";
 import { talkHandlers } from "./server-methods/talk.js";
 import { toolsCatalogHandlers } from "./server-methods/tools-catalog.js";
 import { ttsHandlers } from "./server-methods/tts.js";
-import { voiceConfigHandlers } from "./server-methods/voice-config.js";
 import type { GatewayRequestHandlers, GatewayRequestOptions } from "./server-methods/types.js";
 import { updateHandlers } from "./server-methods/update.js";
 import { usageHandlers } from "./server-methods/usage.js";
+import { voiceConfigHandlers } from "./server-methods/voice-config.js";
 import { voicewakeHandlers } from "./server-methods/voicewake.js";
 import { webHandlers } from "./server-methods/web.js";
 import { wizardHandlers } from "./server-methods/wizard.js";
@@ -71,6 +72,7 @@ export const coreGatewayHandlers: GatewayRequestHandlers = {
   ...logsHandlers,
   ...voicewakeHandlers,
   ...healthHandlers,
+  ...legalEvidenceHandlers,
   ...channelsHandlers,
   ...chatHandlers,
   ...cronHandlers,

@@ -18,6 +18,16 @@ describe("method scope resolution", () => {
     expect(resolveLeastPrivilegeOperatorScopesForMethod("poll")).toEqual(["operator.write"]);
   });
 
+  it("classifies all legal evidence RPC methods as operator.read", () => {
+    for (const method of [
+      "agent.evidence.capabilities",
+      "agent.evidence.get",
+      "agent.evidence.read",
+    ]) {
+      expect(resolveLeastPrivilegeOperatorScopesForMethod(method)).toEqual(["operator.read"]);
+    }
+  });
+
   it("returns empty scopes for unknown methods", () => {
     expect(resolveLeastPrivilegeOperatorScopesForMethod("totally.unknown.method")).toEqual([]);
   });

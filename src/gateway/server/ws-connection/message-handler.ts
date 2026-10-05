@@ -1058,6 +1058,7 @@ export function attachGatewayWsMessageHandler(params: {
           socket,
           connect: connectParams,
           connId,
+          authenticatedDeviceId: deviceAuthPayloadVersion ? device?.id : undefined,
           presenceKey,
           clientIp: reportedClientIp,
           canvasHostUrl,

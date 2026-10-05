@@ -1,4 +1,12 @@
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
+import evidenceFixtures from "../../agents/legal-evidence/development-fixtures.json" with { type: "json" };
+import { LEGAL_EVIDENCE_MODEL_POLICY_HASH } from "../../agents/legal-evidence/gateway.js";
+import { evidenceHash, bytesHash } from "../../agents/legal-evidence/hash.js";
+import { EngineEvidenceStore } from "../../agents/legal-evidence/store.js";
+import type { CaptureRequest, RuntimeIdentity } from "../../agents/legal-evidence/types.js";
 import { BARE_SESSION_RESET_PROMPT } from "../../auto-reply/reply/session-reset-prompt.js";
 import { agentHandlers } from "./agent.js";
 import type { GatewayRequestContext } from "./types.js";
@@ -7,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   loadSessionEntry: vi.fn(),
   updateSessionStore: vi.fn(),
   agentCommand: vi.fn(),
+  resolveSendPolicy: vi.fn(() => "allow" as "allow" | "deny"),
   registerAgentRunContext: vi.fn(),
   sessionsResetHandler: vi.fn(),
   loadConfigReturn: {} as Record<string, unknown>,
@@ -27,7 +36,8 @@ vi.mock("../../config/sessions.js", async () => {
   return {
     ...actual,
     updateSessionStore: mocks.updateSessionStore,
-    resolveAgentIdFromSessionKey: () => "main",
+    resolveAgentIdFromSessionKey: (key: string) =>
+      key.includes(":legal:") ? key.split(":")[1] : "main",
     resolveExplicitAgentSessionKey: () => undefined,
     resolveAgentMainSessionKey: ({
       cfg,
@@ -54,7 +64,7 @@ vi.mock("../../config/config.js", async () => {
 });
 
 vi.mock("../../agents/agent-scope.js", () => ({
-  listAgentIds: () => ["main"],
+  listAgentIds: () => ["main", "legal-facts"],
 }));
 
 vi.mock("../../infra/agent-events.js", () => ({
@@ -70,7 +80,7 @@ vi.mock("./sessions.js", () => ({
 }));
 
 vi.mock("../../sessions/send-policy.js", () => ({
-  resolveSendPolicy: () => "allow",
+  resolveSendPolicy: mocks.resolveSendPolicy,
 }));
 
 vi.mock("../../utils/delivery-context.js", async () => {
@@ -271,6 +281,179 @@ async function invokeAgentIdentityGet(
 }
 
 describe("gateway agent handler", () => {
+  it("fails evidence ingress closed before acknowledgement without measured runtime pins", async () => {
+    mocks.agentCommand.mockClear();
+    const respond = await invokeAgent({
+      message: "offline test assignment",
+      agentId: "legal-facts",
+      sessionKey: "agent:legal-facts:legal:00000000-0000-4000-8000-000000000001",
+      thinking: "high",
+      deliver: false,
+      idempotencyKey: "00000000-0000-4000-8000-000000000002",
+      legalEvidence: {},
+    } as AgentParams);
+
+    expect(respond).toHaveBeenCalledTimes(1);
+    expect(respond.mock.calls[0][0]).toBe(false);
+    expect(respond.mock.calls[0][2]).toMatchObject({ code: expect.any(String) });
+    expect(mocks.agentCommand).not.toHaveBeenCalled();
+  });
+
+  it("acks only after durable prepare and does not redispatch after context restart", async () => {
+    const previousStateDir = process.env.OPENCLAW_STATE_DIR;
+    const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "quinn-b3-agent-"));
+    process.env.OPENCLAW_STATE_DIR = stateDir;
+    const prompt = "offline legal assignment with exact bound text";
+    const descriptor = structuredClone(evidenceFixtures.records.capture) as CaptureRequest;
+    const runtime = structuredClone(
+      evidenceFixtures.records.engine.record.runtime,
+    ) as RuntimeIdentity;
+    descriptor.binding.operationId = "00000000-0000-4000-8000-000000000021";
+    descriptor.binding.runId = "00000000-0000-4000-8000-000000000022";
+    descriptor.binding.sessionKey = "agent:legal-facts:legal:00000000-0000-4000-8000-000000000021";
+    descriptor.binding.submittedPromptHash = bytesHash(prompt);
+    descriptor.binding.modelPolicyHash = LEGAL_EVIDENCE_MODEL_POLICY_HASH;
+    descriptor.binding.engineInstallationId = runtime.installationId;
+    descriptor.binding.engineRevision = runtime.engineRevision;
+    descriptor.binding.engineBuildHash = runtime.engineBuildHash;
+    descriptor.binding.engineAdapterVersion = runtime.adapterVersion;
+    descriptor.binding.engineAdapterPatchHash = runtime.adapterPatchHash;
+    descriptor.binding.engineAdapterContentHash = runtime.adapterContentHash;
+    descriptor.binding.engineRolePolicyHash = runtime.rolePolicyHash;
+    descriptor.binding.deadlineAt = new Date(Date.now() + 5 * 60_000).toISOString();
+    descriptor.bindingHash = evidenceHash(descriptor.binding);
+
+    const store = new EngineEvidenceStore(path.join(stateDir, "quinn-legal-evidence-v1"));
+    const respond = vi.fn((ok: boolean, payload?: unknown) => {
+      if (ok && (payload as { status?: string } | undefined)?.status === "accepted") {
+        const durable = store.read(descriptor.binding.operationId);
+        expect(durable.record.state).toBe("prepared");
+      }
+    });
+    const request = {
+      message: prompt,
+      agentId: "legal-facts",
+      sessionKey: descriptor.binding.sessionKey,
+      thinking: "high",
+      deliver: false,
+      idempotencyKey: descriptor.binding.runId,
+      legalEvidence: descriptor,
+    } as AgentParams;
+    const ctx = { ...makeContext(), legalEvidenceRuntime: runtime } as GatewayRequestContext;
+    mocks.loadConfigReturn = {};
+    mocks.loadSessionEntry.mockReturnValue({
+      cfg: {},
+      storePath: path.join(stateDir, "sessions.json"),
+      entry: { sessionId: "legal-session-1", updatedAt: Date.now() },
+      canonicalKey: descriptor.binding.sessionKey,
+    });
+    mocks.updateSessionStore.mockImplementation(async (_path, updater) => {
+      await updater({});
+      return undefined;
+    });
+    mocks.agentCommand.mockReset().mockImplementation(() => new Promise(() => {}));
+    const authenticatedClient = {
+      authenticatedDeviceId: "verified-device-1",
+      connect: {
+        role: "operator",
+        scopes: ["operator.read", "operator.write"],
+        client: { id: "mission-control-cli", mode: "cli" },
+      },
+    } as never;
+
+    try {
+      await invokeAgent(request, {
+        respond,
+        context: ctx,
+        client: authenticatedClient,
+        isWebchatConnect: () => false,
+      });
+      expect(respond.mock.calls[0][1]).toMatchObject({ status: "accepted" });
+      expect(mocks.agentCommand).toHaveBeenCalledTimes(1);
+      expect(mocks.agentCommand.mock.calls[0][0]).toMatchObject({
+        message: prompt,
+        legalEvidenceCapture: expect.any(Object),
+      });
+      expect(store.read(descriptor.binding.operationId).record.attempts).toEqual([]);
+
+      const duplicateRespond = vi.fn();
+      await invokeAgent(request, {
+        respond: duplicateRespond,
+        context: ctx,
+        client: authenticatedClient,
+        isWebchatConnect: () => false,
+      });
+      expect(duplicateRespond.mock.calls[0][1]).toMatchObject({ state: "prepared" });
+      expect(mocks.agentCommand).toHaveBeenCalledTimes(1);
+
+      const restartedRespond = vi.fn();
+      await invokeAgent(request, {
+        respond: restartedRespond,
+        context: { ...makeContext(), legalEvidenceRuntime: runtime } as GatewayRequestContext,
+        client: authenticatedClient,
+        isWebchatConnect: () => false,
+      });
+      expect(restartedRespond.mock.calls[0][1]).toMatchObject({
+        operationId: descriptor.binding.operationId,
+        state: "unknown",
+      });
+      expect(store.read(descriptor.binding.operationId).record.state).toBe("unknown");
+      expect(mocks.agentCommand).toHaveBeenCalledTimes(1);
+
+      const deniedDescriptor = structuredClone(descriptor);
+      deniedDescriptor.binding.operationId = "00000000-0000-4000-8000-000000000023";
+      deniedDescriptor.binding.runId = "00000000-0000-4000-8000-000000000024";
+      deniedDescriptor.binding.sessionKey =
+        "agent:legal-facts:legal:00000000-0000-4000-8000-000000000023";
+      deniedDescriptor.bindingHash = evidenceHash(deniedDescriptor.binding);
+      const deniedStore = new EngineEvidenceStore(path.join(stateDir, "quinn-legal-evidence-v1"));
+      mocks.resolveSendPolicy.mockReturnValueOnce("deny");
+      mocks.loadSessionEntry.mockReturnValue({
+        cfg: {},
+        storePath: path.join(stateDir, "sessions.json"),
+        entry: {
+          sessionId: "legal-session-denied",
+          updatedAt: Date.now(),
+          sendPolicy: "deny",
+        },
+        canonicalKey: deniedDescriptor.binding.sessionKey,
+      });
+      const deniedRespond = vi.fn();
+      await invokeAgent(
+        {
+          ...request,
+          sessionKey: deniedDescriptor.binding.sessionKey,
+          idempotencyKey: deniedDescriptor.binding.runId,
+          legalEvidence: deniedDescriptor,
+        },
+        {
+          respond: deniedRespond,
+          context: ctx,
+          client: authenticatedClient,
+          isWebchatConnect: () => false,
+        },
+      );
+      expect(deniedRespond.mock.calls[0][0]).toBe(false);
+      expect(
+        fs.existsSync(
+          path.join(deniedStore.root, "operations", `${deniedDescriptor.binding.operationId}.json`),
+        ),
+      ).toBe(false);
+      expect(mocks.agentCommand).toHaveBeenCalledTimes(1);
+    } finally {
+      if (previousStateDir === undefined) {
+        delete process.env.OPENCLAW_STATE_DIR;
+      } else {
+        process.env.OPENCLAW_STATE_DIR = previousStateDir;
+      }
+      fs.rmSync(stateDir, { recursive: true, force: true });
+      mocks.loadSessionEntry.mockReset();
+      mocks.updateSessionStore.mockReset();
+      mocks.agentCommand.mockReset();
+      mocks.loadConfigReturn = {};
+    }
+  });
+
   it("preserves ACP metadata from the current stored session entry", async () => {
     const existingAcpMeta = {
       backend: "acpx",

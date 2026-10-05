@@ -212,7 +212,26 @@ export class LegalEvidenceCapture {
     if (!reservation.created) {
       throw new Error("legal-evidence-operation-already-reserved");
     }
-    return new LegalEvidenceCapture(store, reservation.envelope, submittedAssignment);
+    return LegalEvidenceCapture.fromReserved(store, reservation.envelope, submittedAssignment);
+  }
+  static fromReserved(
+    store: EngineEvidenceStore,
+    envelope: EngineEnvelope,
+    submittedAssignment: string,
+  ): LegalEvidenceCapture {
+    const durable = store.read(envelope.record.operationId);
+    if (
+      typeof submittedAssignment !== "string" ||
+      submittedAssignment.length === 0 ||
+      Buffer.byteLength(submittedAssignment) > 1_000_000 ||
+      bytesHash(submittedAssignment) !== envelope.record.binding.submittedPromptHash ||
+      envelope.record.state !== "prepared" ||
+      envelope.record.attempts.length !== 0 ||
+      durable.hash !== envelope.hash
+    ) {
+      throw new Error("legal-evidence-assignment-binding");
+    }
+    return new LegalEvidenceCapture(store, envelope, submittedAssignment);
   }
   get binding() {
     return structuredClone(this.envelope.record.binding);

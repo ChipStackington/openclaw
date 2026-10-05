@@ -1,6 +1,16 @@
 import { randomUUID } from "node:crypto";
+import path from "node:path";
 import { listAgentIds } from "../../agents/agent-scope.js";
 import type { AgentInternalEvent } from "../../agents/internal-events.js";
+import { LegalEvidenceCapture } from "../../agents/legal-evidence/capture.js";
+import {
+  markLegalEvidencePreparedUnknown,
+  readExistingLegalEvidenceIngress,
+  reserveLegalEvidenceIngress,
+  type EvidencePeer,
+} from "../../agents/legal-evidence/gateway.js";
+import { EngineEvidenceStore } from "../../agents/legal-evidence/store.js";
+import type { CaptureRequest } from "../../agents/legal-evidence/types.js";
 import {
   normalizeSpawnedRunMetadata,
   resolveIngressWorkspaceOverrideForSpawnedRun,
@@ -8,6 +18,7 @@ import {
 import { buildBareSessionResetPrompt } from "../../auto-reply/reply/session-reset-prompt.js";
 import { agentCommandFromIngress } from "../../commands/agent.js";
 import { loadConfig } from "../../config/config.js";
+import { resolveStateDir } from "../../config/paths.js";
 import {
   mergeSessionEntry,
   resolveAgentIdFromSessionKey,
@@ -22,6 +33,9 @@ import {
   resolveAgentOutboundTarget,
 } from "../../infra/outbound/agent-delivery.js";
 import { resolveMessageChannelSelection } from "../../infra/outbound/channel-selection.js";
+import { resolveJudgeSink } from "../../infra/outcomes/judge-sink-config.js";
+import type { JudgeSinkConfig } from "../../infra/outcomes/judge-sink-config.js";
+import { maybeEmitOutcome } from "../../infra/outcomes/judge-sink.js";
 import { classifySessionKeyShape, normalizeAgentId } from "../../routing/session-key.js";
 import { defaultRuntime } from "../../runtime.js";
 import { normalizeInputProvenance, type InputProvenance } from "../../sessions/input-provenance.js";
@@ -64,9 +78,6 @@ import {
 import { normalizeRpcAttachmentsToChatAttachments } from "./attachment-normalize.js";
 import { sessionsHandlers } from "./sessions.js";
 import type { GatewayRequestHandlerOptions, GatewayRequestHandlers } from "./types.js";
-import { resolveJudgeSink } from "../../infra/outcomes/judge-sink-config.js";
-import { maybeEmitOutcome } from "../../infra/outcomes/judge-sink.js";
-import type { JudgeSinkConfig } from "../../infra/outcomes/judge-sink-config.js";
 
 const RESET_COMMAND_RE = /^\/(new|reset)(?:\s+([\s\S]*))?$/i;
 
@@ -286,7 +297,57 @@ export const agentHandlers: GatewayRequestHandlers = {
       spawnedBy?: string;
       inputProvenance?: InputProvenance;
       workspaceDir?: string;
+      legalEvidence?: CaptureRequest;
     };
+    const hasLegalEvidence = Object.hasOwn(p, "legalEvidence");
+    let legalEvidenceCapture: LegalEvidenceCapture | undefined;
+    let legalEvidenceStore: EngineEvidenceStore | undefined;
+    const legalEvidencePeer: EvidencePeer | undefined = hasLegalEvidence
+      ? {
+          authenticatedDeviceId: client?.authenticatedDeviceId,
+          clientId: client?.connect.client.id ?? "",
+          clientRole: client?.connect.role ?? "",
+          clientMode: client?.connect.client.mode ?? "",
+          scopes: client?.connect.scopes ?? [],
+          isWebchat: client?.connect ? isWebchatConnect(client.connect) : true,
+        }
+      : undefined;
+    if (hasLegalEvidence) {
+      try {
+        if (!request.legalEvidence || !context.legalEvidenceRuntime || !legalEvidencePeer) {
+          throw new Error("legal-evidence-runtime-unavailable");
+        }
+        legalEvidenceStore = new EngineEvidenceStore(
+          path.join(resolveStateDir(), "quinn-legal-evidence-v1"),
+        );
+        const existing = readExistingLegalEvidenceIngress({
+          store: legalEvidenceStore,
+          descriptor: request.legalEvidence,
+          params: p,
+          peer: legalEvidencePeer,
+          runtime: context.legalEvidenceRuntime,
+          activeOperationIds: context.legalEvidenceActiveOperationIds,
+        });
+        if (existing) {
+          respond(true, {
+            operationId: existing.envelope.record.operationId,
+            state: existing.envelope.record.state,
+            envelope: existing.envelope,
+          });
+          return;
+        }
+        if (context.dedupe.has(`agent:${request.idempotencyKey}`)) {
+          throw new Error("legal-evidence-idempotency-conflict");
+        }
+      } catch {
+        respond(
+          false,
+          undefined,
+          errorShape(ErrorCodes.UNAVAILABLE, "legal evidence ingress unavailable"),
+        );
+        return;
+      }
+    }
     const senderIsOwner = resolveSenderIsOwnerFromClient(client);
     const cfg = loadConfig();
     const idem = request.idempotencyKey;
@@ -302,7 +363,7 @@ export const agentHandlers: GatewayRequestHandlers = {
     let resolvedGroupSpace: string | undefined = normalizedSpawned.groupSpace;
     let spawnedByValue = normalizedSpawned.spawnedBy;
     const inputProvenance = normalizeInputProvenance(request.inputProvenance);
-    const cached = context.dedupe.get(`agent:${idem}`);
+    const cached = hasLegalEvidence ? undefined : context.dedupe.get(`agent:${idem}`);
     if (cached) {
       respond(cached.ok, cached.payload, cached.error, {
         cached: true,
@@ -313,7 +374,7 @@ export const agentHandlers: GatewayRequestHandlers = {
     const requestedBestEffortDeliver =
       typeof request.bestEffortDeliver === "boolean" ? request.bestEffortDeliver : undefined;
 
-    let message = (request.message ?? "").trim();
+    let message = request.legalEvidence ? request.message : (request.message ?? "").trim();
     let images: Array<{ type: "image"; data: string; mimeType: string }> = [];
     if (normalizedAttachments.length > 0) {
       try {
@@ -445,7 +506,7 @@ export const agentHandlers: GatewayRequestHandlers = {
     // Channel messages (Discord, Telegram, etc.) get timestamps via envelope
     // formatting in a separate code path — they never reach this handler.
     // See: https://github.com/moltbot/moltbot/issues/3658
-    if (!skipTimestampInjection) {
+    if (!skipTimestampInjection && !request.legalEvidence) {
       message = injectTimestamp(message, timestampOptsFromConfig(cfg));
     }
 
@@ -670,6 +731,87 @@ export const agentHandlers: GatewayRequestHandlers = {
 
     const deliver = request.deliver === true && resolvedChannel !== INTERNAL_MESSAGE_CHANNEL;
 
+    const resolvedThreadId = explicitThreadId ?? deliveryPlan.resolvedThreadId;
+    const judgeSink = resolveJudgeSink(cfg);
+    const emitAgentId = resolvedSessionKey
+      ? resolveAgentIdFromSessionKey(resolvedSessionKey)
+      : agentId;
+    const suppressOutcomeEmit = request.suppressOutcomeEmit === true;
+
+    if (hasLegalEvidence) {
+      try {
+        if (
+          !request.legalEvidence ||
+          !context.legalEvidenceRuntime ||
+          !legalEvidenceStore ||
+          !legalEvidencePeer
+        ) {
+          throw new Error("legal-evidence-runtime-unavailable");
+        }
+        const existing = readExistingLegalEvidenceIngress({
+          store: legalEvidenceStore,
+          descriptor: request.legalEvidence,
+          params: p,
+          peer: legalEvidencePeer,
+          runtime: context.legalEvidenceRuntime,
+          activeOperationIds: context.legalEvidenceActiveOperationIds,
+        });
+        if (existing) {
+          respond(true, {
+            operationId: existing.envelope.record.operationId,
+            state: existing.envelope.record.state,
+            envelope: existing.envelope,
+          });
+          return;
+        }
+        if (context.dedupe.has(`agent:${idem}`)) {
+          throw new Error("legal-evidence-idempotency-conflict");
+        }
+        const reservation = reserveLegalEvidenceIngress({
+          store: legalEvidenceStore,
+          descriptor: request.legalEvidence,
+          params: p,
+          peer: legalEvidencePeer,
+          runtime: context.legalEvidenceRuntime,
+          activeOperationIds: context.legalEvidenceActiveOperationIds,
+        });
+        if (!reservation.created) {
+          respond(true, {
+            operationId: reservation.envelope.record.operationId,
+            state: reservation.envelope.record.state,
+            envelope: reservation.envelope,
+          });
+          return;
+        }
+        const activeOperationIds = (context.legalEvidenceActiveOperationIds ??= new Set<string>());
+        activeOperationIds.add(reservation.envelope.record.operationId);
+        try {
+          legalEvidenceCapture = LegalEvidenceCapture.fromReserved(
+            legalEvidenceStore,
+            reservation.envelope,
+            request.message,
+          );
+        } catch (error) {
+          try {
+            markLegalEvidencePreparedUnknown(
+              legalEvidenceStore,
+              reservation.envelope.record.operationId,
+            );
+          } finally {
+            activeOperationIds.delete(reservation.envelope.record.operationId);
+          }
+          throw error;
+        }
+      } catch {
+        respond(
+          false,
+          undefined,
+          errorShape(ErrorCodes.UNAVAILABLE, "legal evidence ingress unavailable"),
+        );
+        return;
+      }
+    }
+
     const accepted = {
       runId,
       status: "accepted" as const,
@@ -687,17 +829,10 @@ export const agentHandlers: GatewayRequestHandlers = {
     });
     respond(true, accepted, undefined, { runId });
 
-    const resolvedThreadId = explicitThreadId ?? deliveryPlan.resolvedThreadId;
-
-    const judgeSink = resolveJudgeSink(cfg);
-    const emitAgentId = resolvedSessionKey
-      ? resolveAgentIdFromSessionKey(resolvedSessionKey)
-      : agentId;
-    const suppressOutcomeEmit = request.suppressOutcomeEmit === true;
-
     dispatchAgentRunFromGateway({
       ingressOpts: {
         message,
+        legalEvidenceCapture,
         images,
         to: resolvedTo,
         sessionId: resolvedSessionId,
