@@ -685,3 +685,5 @@ export class LegalEvidenceCapture {
     });
   }
 }
+
+export const legalEvidenceCaptureModuleUrl = import.meta.url;

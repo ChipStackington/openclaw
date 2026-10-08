@@ -1033,3 +1033,5 @@ export const agentHandlers: GatewayRequestHandlers = {
     });
   },
 };
+
+export const legalEvidenceAgentModuleUrl = import.meta.url;

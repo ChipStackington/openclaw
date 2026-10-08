@@ -267,6 +267,18 @@ export async function startGatewayServer(
   port = 18789,
   opts: GatewayServerOptions = {},
 ): Promise<GatewayServer> {
+  const startupFile = process.env.OPENCLAW_LEGAL_EVIDENCE_STARTUP_FILE;
+  const legalEvidenceReadRuntime =
+    startupFile === undefined
+      ? undefined
+      : (
+          await import("../agents/legal-evidence/startup.runtime.js")
+        ).createGatewayLegalEvidenceRuntime({
+          configFile: startupFile,
+          gatewayModuleUrl: import.meta.url,
+          readConfigFile: () => process.env.OPENCLAW_LEGAL_EVIDENCE_STARTUP_FILE,
+          readAgents: () => loadConfig().agents,
+        });
   const minimalTestGateway =
     process.env.VITEST === "1" && process.env.OPENCLAW_TEST_MINIMAL_GATEWAY === "1";
 
@@ -813,6 +825,8 @@ export async function startGatewayServer(
 
   const gatewayRequestContext: import("./server-methods/types.js").GatewayRequestContext = {
     deps,
+    legalEvidenceReadRuntime,
+    legalEvidenceActiveOperationIds: legalEvidenceReadRuntime ? new Set<string>() : undefined,
     cron,
     cronStorePath,
     execApprovalManager,

@@ -2127,3 +2127,8 @@ export async function runEmbeddedAttempt(
     process.chdir(prevCwd);
   }
 }
+
+export const legalEvidenceExecutionModuleUrl = import.meta.url;
+export function legalEvidenceAdapterModuleUrl(): string {
+  return import.meta.resolve("@mariozechner/pi-ai");
+}

@@ -9,6 +9,8 @@ import {
 import { assertEvidenceSchema } from "./schema.js";
 import type { RuntimeIdentity } from "./types.js";
 
+export const legalEvidenceRuntimeModuleUrl = import.meta.url;
+
 export type LegalEvidenceRuntimeReader = () => RuntimeIdentity;
 
 /** A startup snapshot cannot certify material at a later send or seal boundary. */
