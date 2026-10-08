@@ -83,6 +83,31 @@ export function createLegalEvidenceRuntimeReader(options: {
   for (const file of [...config.loadedEngineModules, config.loadedAdapterModule, patchFile]) {
     installationGuard.assertFile(file);
   }
+  // Bind the strict v1 inventory bytes once, while the complete installation is
+  // still the immutable bootstrap generation. Each later read rechecks every
+  // physical entry/alias against that baseline; load hooks still hash loaded bytes.
+  // No elapsed-time cache or changed-generation reapproval is permitted.
+  installationGuard.verify();
+  const engine = measureMaterialInventory(engineRoot, engineInventory);
+  const adapter = measureMaterialInventory(adapterRoot, adapterInventory);
+  const pkg = parseEvidenceJson(
+    readCheckedFile(path.join(adapterRoot, "package.json"), 1_000_000),
+    1_000_000,
+  ) as { name?: unknown; version?: unknown };
+  if (
+    pkg.name !== "@mariozechner/pi-ai" ||
+    pkg.version !== "0.57.1" ||
+    installationBuildHash(engine, expected.engineRevision, installationGuard.manifestHash) !==
+      expected.engineBuildHash ||
+    materialInventoryHash(adapter, {
+      package: "@mariozechner/pi-ai",
+      packageVersion: "0.57.1",
+    }) !== expected.adapterContentHash ||
+    bytesHash(readCheckedFile(patchFile, 2_000_000)) !== expected.adapterPatchHash
+  ) {
+    throw new Error("legal-evidence-runtime-drift");
+  }
+  installationGuard.verify();
   return () => {
     installationGuard.verify();
     const identity = readIdentity();
@@ -92,25 +117,7 @@ export function createLegalEvidenceRuntimeReader(options: {
     ) {
       throw new Error("legal-evidence-runtime-drift");
     }
-    const engine = measureMaterialInventory(engineRoot, engineInventory);
-    const adapter = measureMaterialInventory(adapterRoot, adapterInventory);
-    const pkg = parseEvidenceJson(
-      readCheckedFile(path.join(adapterRoot, "package.json"), 1_000_000),
-      1_000_000,
-    ) as { name?: unknown; version?: unknown };
-    if (
-      pkg.name !== "@mariozechner/pi-ai" ||
-      pkg.version !== "0.57.1" ||
-      installationBuildHash(engine, expected.engineRevision, installationGuard.manifestHash) !==
-        expected.engineBuildHash ||
-      materialInventoryHash(adapter, {
-        package: "@mariozechner/pi-ai",
-        packageVersion: "0.57.1",
-      }) !== expected.adapterContentHash ||
-      bytesHash(readCheckedFile(patchFile, 2_000_000)) !== expected.adapterPatchHash
-    ) {
-      throw new Error("legal-evidence-runtime-drift");
-    }
+
     return structuredClone(expected);
   };
 }

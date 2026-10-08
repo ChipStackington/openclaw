@@ -344,6 +344,99 @@ function validate(value: unknown): asserts value is InstallationManifest {
     }
   }
 }
+type BoundaryPlan = Readonly<{
+  ancestors: ReadonlyArray<{ file: string; expected: string }>;
+  entries: ReadonlyArray<{
+    file: string;
+    expected: string;
+    target?: string;
+    names?: ReadonlyArray<string>;
+  }>;
+}>;
+
+function boundaryPlan(
+  root: string,
+  manifest: InstallationManifest,
+  baseline: Snapshot,
+): BoundaryPlan {
+  const children = new Map<string, string[]>([["", []]]);
+  for (const entry of manifest.entries) {
+    if (entry.kind === "directory") {
+      children.set(entry.path, []);
+    }
+  }
+  for (const entry of manifest.entries) {
+    const at = entry.path.lastIndexOf("/");
+    const parent = at < 0 ? "" : entry.path.slice(0, at);
+    const name = at < 0 ? entry.path : entry.path.slice(at + 1);
+    const names = children.get(parent);
+    if (!names) {
+      fail();
+    }
+    names.push(name);
+  }
+  for (const names of children.values()) {
+    names.sort();
+  }
+  const planned = (rel: string) => {
+    const expected = baseline.get(rel);
+    if (expected === undefined) {
+      fail();
+    }
+    return {
+      file: path.join(root, rel),
+      expected,
+      names: children.get(rel),
+    };
+  };
+  // Avoid parsing metadata strings: link stamps are captured separately below.
+  const entries = [
+    planned(""),
+    ...manifest.entries.map((entry) => {
+      const item = planned(entry.path);
+      if (entry.kind !== "link") {
+        return item;
+      }
+      const suffix = ":" + entry.target + ":" + entry.realpath;
+      if (!item.expected.endsWith(suffix)) {
+        fail();
+      }
+      return { ...item, expected: item.expected.slice(0, -suffix.length), target: entry.target };
+    }),
+  ];
+  const ancestors = [...baseline].flatMap(([key, expected]) =>
+    key.startsWith("absolute:") ? [{ file: key.slice(9), expected }] : [],
+  );
+  return { entries, ancestors };
+}
+
+function verifyBoundary(root: string, plan: BoundaryPlan): void {
+  for (const { file, expected } of plan.ancestors) {
+    const s = stat(file);
+    if (!s.isDirectory() || s.isSymbolicLink() || [s.dev, s.ino, s.mode].join(":") !== expected) {
+      fail();
+    }
+  }
+  for (const { file, expected, target, names } of plan.entries) {
+    const s = stat(file);
+    if (stamp(s) !== expected) {
+      fail();
+    }
+    if (names) {
+      const actual = fs.readdirSync(file).toSorted();
+      if (actual.length !== names.length || actual.some((name, i) => name !== names[i])) {
+        fail();
+      }
+    }
+    if (target !== undefined) {
+      const raw = fs.readlinkSync(file).replace(/^\\\\\?\\/, "");
+      if (relative(root, path.resolve(path.dirname(file), raw)) !== target) {
+        fail();
+      }
+    }
+  }
+}
+
 /** Candidate generation is not registry or installed-mapping approval. */
 export function inventoryInstallation(root: string): InstallationManifest {
   if (!path.isAbsolute(root)) {
@@ -397,6 +490,7 @@ export function createInstallationGuard(options: {
     manifest.entries.filter((e) => e.kind === "file").map((e) => [e.path, e]),
   );
   let baseline: Snapshot | undefined,
+    plan: BoundaryPlan | undefined,
     failed = false;
   const held = <T>(action: () => T): T => {
     if (failed) {
@@ -414,20 +508,24 @@ export function createInstallationGuard(options: {
       if (bytesHash(readCheckedFile(file, limits.manifestBytes)) !== pin) {
         fail();
       }
-      // The process starts only after all bytes match. Later checks admit only the
-      // unchanged physical generation; no timestamp/age cache or reapproval is used.
-      // Node load hooks separately hash every loaded file/source. This relies on the
-      // trusted host's file identity/change metadata, not protection from host tampering.
-      const bootstrap = baseline === undefined;
-      const current = scan(root, bootstrap);
+      if (baseline && plan) {
+        // Every physical member and direct alias edge is checked twice against the
+        // immutable bootstrap. Unchanged edges cannot resolve to a new final target
+        // while their complete physical graph remains unchanged. Load hooks still
+        // resolve the actual file and hash returned source; no age cache is used.
+        verifyBoundary(root, plan);
+        verifyBoundary(root, plan);
+        return;
+      }
+      const current = scan(root, true);
       if (
-        (bootstrap && evidenceHash(current.manifest) !== approved) ||
-        !equalSnapshots(current.snapshot, scan(root, false).snapshot) ||
-        (baseline && !equalSnapshots(baseline, current.snapshot))
+        evidenceHash(current.manifest) !== approved ||
+        !equalSnapshots(current.snapshot, scan(root, false).snapshot)
       ) {
         fail();
       }
-      baseline ??= current.snapshot;
+      baseline = current.snapshot;
+      plan = boundaryPlan(root, manifest, baseline);
     });
   verify();
   return Object.freeze({

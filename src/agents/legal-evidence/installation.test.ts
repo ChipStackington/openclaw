@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { test } from "vitest";
+import { test, vi } from "vitest";
 import { bytesHash } from "./hash.js";
 import { createInstallationGuard, inventoryInstallation } from "./installation.js";
 import { measureMaterialInventory } from "./material.js";
@@ -205,5 +205,72 @@ test("large complete installation verifies unexecuted assets and refuses an inco
       }),
     /installation-drift/,
   );
+  assert.throws(guard.verify, /installation-drift/);
+});
+
+test("a confined alias chain remains valid only while every direct edge is unchanged", ({
+  onTestFinished,
+}) => {
+  const f = fixture(onTestFinished);
+  const chain = path.join(f.root, "chain");
+  fs.symlinkSync(f.alias, chain, process.platform === "win32" ? "junction" : "dir");
+  fs.writeFileSync(f.manifestFile, JSON.stringify(inventoryInstallation(f.root)));
+  const guard = createInstallationGuard({
+    ...f.options,
+    installationManifestHash: bytesHash(fs.readFileSync(f.manifestFile)),
+  });
+  guard.verify();
+  assert.equal(guard.assertFile(path.join(chain, "index.js")), bytesHash(fs.readFileSync(f.file)));
+  fs.unlinkSync(f.alias);
+  fs.symlinkSync(path.dirname(f.lazy), f.alias, process.platform === "win32" ? "junction" : "dir");
+  assert.throws(guard.verify, /installation-drift/);
+  fs.unlinkSync(f.alias);
+  fs.symlinkSync(path.dirname(f.file), f.alias, process.platform === "win32" ? "junction" : "dir");
+  assert.throws(guard.verify, /installation-drift/);
+});
+
+test("second complete boundary pass detects a file changed after its first-pass stat", ({
+  onTestFinished,
+}) => {
+  const f = fixture(onTestFinished),
+    guard = createInstallationGuard(f.options);
+  const original = fs.readdirSync.bind(fs);
+  let rootReads = 0;
+  const spy = vi
+    .spyOn(fs, "readdirSync")
+    .mockImplementation((...args: Parameters<typeof fs.readdirSync>) => {
+      if (String(args[0]) === f.root && ++rootReads === 2) {
+        fs.appendFileSync(f.file, "between-pass-drift");
+      }
+      return original(...args);
+    });
+  try {
+    assert.throws(guard.verify, /installation-drift/);
+  } finally {
+    spy.mockRestore();
+  }
+  assert.equal(rootReads, 2);
+  assert.throws(guard.verify, /installation-drift/);
+});
+
+test("metadata-stable directory listing tampering cannot hide a new namespace entry", ({
+  onTestFinished,
+}) => {
+  const f = fixture(onTestFinished),
+    guard = createInstallationGuard(f.options);
+  const original = fs.readdirSync.bind(fs);
+  const spy = vi
+    .spyOn(fs, "readdirSync")
+    .mockImplementation((...args: Parameters<typeof fs.readdirSync>) => {
+      const names = original(...args);
+      return (String(args[0]) === f.root
+        ? [...(names as unknown as string[]), "unapproved-empty-directory"]
+        : names) as unknown as ReturnType<typeof fs.readdirSync>;
+    });
+  try {
+    assert.throws(guard.verify, /installation-drift/);
+  } finally {
+    spy.mockRestore();
+  }
   assert.throws(guard.verify, /installation-drift/);
 });

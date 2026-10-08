@@ -167,3 +167,22 @@ test("a cached object or asynchronous measurement cannot act as the synchronous 
   assert.throws(() => readCurrentLegalEvidenceRuntime(runtime));
   assert.throws(() => readCurrentLegalEvidenceRuntime(async () => runtime));
 });
+
+test("reader construction refuses mismatched material pins before publishing a reader", ({
+  onTestFinished,
+}) => {
+  const f = setup(onTestFinished);
+  f.options.engineInventory.files[0].sha256 = "f".repeat(64);
+  assert.throws(() => createLegalEvidenceRuntimeReader(f.options), /drift/);
+});
+
+test("reader construction enforces the strict v1 inventory file limit before publishing", ({
+  onTestFinished,
+}) => {
+  const f = setup(onTestFinished);
+  f.options.engineInventory.files = [
+    f.options.engineInventory.files[0],
+    ...Array.from({ length: 20000 }, (_, i) => ({ path: `f${i}`, sha256: "f".repeat(64) })),
+  ];
+  assert.throws(() => createLegalEvidenceRuntimeReader(f.options), /inventory-invalid/);
+});
