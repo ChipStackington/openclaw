@@ -1,6 +1,7 @@
 import path from "node:path";
 import { readCheckedFile } from "./files.js";
 import { bytesHash, evidenceHash, parseEvidenceJson } from "./hash.js";
+import { installationBuildHash, type InstallationGuard } from "./installation.js";
 import {
   materialInventoryHash,
   measureMaterialInventory,
@@ -36,6 +37,7 @@ export function assertCurrentLegalEvidenceRuntime(
  * loaded module paths; no RPC supplies pins, paths, or the identity reader. */
 export function createLegalEvidenceRuntimeReader(options: {
   expected: RuntimeIdentity;
+  installationGuard: InstallationGuard;
   engineRoot: string;
   engineInventory: MaterialInventory;
   adapterRoot: string;
@@ -46,11 +48,18 @@ export function createLegalEvidenceRuntimeReader(options: {
   readIdentity: () => Pick<RuntimeIdentity, "installationId" | "rolePolicyHash">;
 }): LegalEvidenceRuntimeReader {
   assertEvidenceSchema("RuntimeIdentity", options.expected);
-  const { readIdentity } = options;
+  const { readIdentity, installationGuard } = options;
+  if (!installationGuard || typeof installationGuard.verify !== "function") {
+    throw new Error("legal-evidence-installation-preload-required");
+  }
   if (typeof readIdentity !== "function") {
     throw new Error("legal-evidence-runtime-unavailable");
   }
-  const config = structuredClone({ ...options, readIdentity: undefined });
+  const config = structuredClone({
+    ...options,
+    readIdentity: undefined,
+    installationGuard: undefined,
+  });
   const { expected, engineInventory, adapterInventory } = config;
   const engineRoot = path.resolve(config.engineRoot),
     adapterRoot = path.resolve(config.adapterRoot);
@@ -71,7 +80,11 @@ export function createLegalEvidenceRuntimeReader(options: {
     measuredModule(engineRoot, engineInventory, file);
   }
   measuredModule(adapterRoot, adapterInventory, config.loadedAdapterModule);
+  for (const file of [...config.loadedEngineModules, config.loadedAdapterModule, patchFile]) {
+    installationGuard.assertFile(file);
+  }
   return () => {
+    installationGuard.verify();
     const identity = readIdentity();
     if (
       identity.installationId !== expected.installationId ||
@@ -88,7 +101,7 @@ export function createLegalEvidenceRuntimeReader(options: {
     if (
       pkg.name !== "@mariozechner/pi-ai" ||
       pkg.version !== "0.57.1" ||
-      materialInventoryHash(engine, { engineRevision: expected.engineRevision }) !==
+      installationBuildHash(engine, expected.engineRevision, installationGuard.manifestHash) !==
         expected.engineBuildHash ||
       materialInventoryHash(adapter, {
         package: "@mariozechner/pi-ai",

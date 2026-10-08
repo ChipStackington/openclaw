@@ -2,6 +2,14 @@
 
 import module from "node:module";
 
+// An opted-in legal launcher cannot import engine/dependency code before its guard.
+if (
+  process.env.OPENCLAW_LEGAL_EVIDENCE_STARTUP_FILE !== undefined &&
+  !Object.hasOwn(globalThis, Symbol.for("openclaw.legal-evidence.installation-preload.v1"))
+) {
+  throw new Error("legal-evidence-installation-preload-required");
+}
+
 const MIN_NODE_MAJOR = 22;
 const MIN_NODE_MINOR = 12;
 const MIN_NODE_VERSION = `${MIN_NODE_MAJOR}.${MIN_NODE_MINOR}`;

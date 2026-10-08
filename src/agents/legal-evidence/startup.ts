@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { readCheckedFile } from "./files.js";
 import { bytesHash, evidenceHash, parseEvidenceJson } from "./hash.js";
 import type { MaterialInventory } from "./material.js";
+import { readLegalEvidencePreload } from "./preload-state.js";
 import { createLegalEvidenceRuntimeReader, type LegalEvidenceRuntimeReader } from "./runtime.js";
 import { assertEvidenceSchema } from "./schema.js";
 import type { RuntimeIdentity } from "./types.js";
@@ -10,7 +11,10 @@ import type { RuntimeIdentity } from "./types.js";
 export const legalEvidenceStartupModuleUrl = import.meta.url;
 
 export type LegalEvidenceStartupConfig = {
-  version: 1;
+  version: 2;
+  installationRoot: string;
+  installationManifestFile: string;
+  installationManifestHash: string;
   expected: RuntimeIdentity;
   engineRoot: string;
   engineInventory: MaterialInventory;
@@ -55,6 +59,9 @@ export function readLegalEvidenceStartup(options: {
   const value = parseEvidenceJson(configBytes, 4_000_000);
   exactObject(value, [
     "version",
+    "installationRoot",
+    "installationManifestFile",
+    "installationManifestHash",
     "expected",
     "engineRoot",
     "engineInventory",
@@ -63,11 +70,18 @@ export function readLegalEvidenceStartup(options: {
     "patchFile",
     "installationFile",
   ]);
-  if (value.version !== 1) {
+  if (value.version !== 2) {
     throw new Error("legal-evidence-startup-config");
   }
   assertEvidenceSchema("RuntimeIdentity", value.expected);
-  for (const key of ["engineRoot", "adapterRoot", "patchFile", "installationFile"]) {
+  for (const key of [
+    "engineRoot",
+    "adapterRoot",
+    "patchFile",
+    "installationFile",
+    "installationRoot",
+    "installationManifestFile",
+  ]) {
     absolutePath(value[key]);
   }
   const config = value as unknown as LegalEvidenceStartupConfig;
@@ -95,8 +109,15 @@ export function readLegalEvidenceStartup(options: {
     }
   }
   const configHash = bytesHash(configBytes);
+  const installationGuard = readLegalEvidencePreload(
+    configFile,
+    configHash,
+    config.installationRoot,
+    config.installationManifestHash,
+  );
   const read = createLegalEvidenceRuntimeReader({
     ...config,
+    installationGuard,
     loadedEngineModules,
     loadedAdapterModule,
     readIdentity: () => {

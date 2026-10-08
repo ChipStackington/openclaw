@@ -3,7 +3,14 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { test } from "vitest";
+import { test, vi } from "vitest";
+import {
+  createInstallationGuard,
+  installationBuildHash,
+  inventoryInstallation,
+} from "./installation.js";
+import { readLegalEvidencePreload } from "./preload-state.js";
+vi.mock("./preload-state.js", () => ({ readLegalEvidencePreload: vi.fn() }));
 import fixtures from "./development-fixtures.json" with { type: "json" };
 import { bytesHash, evidenceHash } from "./hash.js";
 import { materialInventoryHash, type MaterialInventory } from "./material.js";
@@ -12,9 +19,15 @@ import type { RuntimeIdentity } from "./types.js";
 function fixture(cleanup: (callback: () => void) => void) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "legal-startup-development-"));
   cleanup(() => fs.rmSync(root, { recursive: true, force: true }));
-  const engineRoot = path.join(root, "dist"),
-    adapterRoot = path.join(root, "adapter");
-  fs.mkdirSync(engineRoot);
+  const installationRoot = path.join(root, "installation");
+  const engineRoot = path.join(installationRoot, "dist"),
+    adapterRoot = path.join(installationRoot, "adapter");
+  fs.mkdirSync(engineRoot, { recursive: true });
+  for (const dependency of ["undici/index.js", "openai/resources/responses/responses.js"]) {
+    const file = path.join(installationRoot, "node_modules", dependency);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, "DEVELOPMENT offline dependency");
+  }
   fs.mkdirSync(path.join(adapterRoot, "dist", "providers"), { recursive: true });
   const engineModule = path.join(engineRoot, "gateway.js");
   fs.writeFileSync(engineModule, "DEVELOPMENT compiled gateway");
@@ -45,14 +58,11 @@ function fixture(cleanup: (callback: () => void) => void) {
   const expected = structuredClone(fixtures.records.engine.record.runtime) as RuntimeIdentity;
   let agents: unknown = { defaults: { model: { primary: "DEVELOPMENT", fallbacks: [] } } };
   expected.rolePolicyHash = evidenceHash({ version: 1, agents });
-  expected.engineBuildHash = materialInventoryHash(engineInventory, {
-    engineRevision: expected.engineRevision,
-  });
   expected.adapterContentHash = materialInventoryHash(adapterInventory, {
     package: "@mariozechner/pi-ai",
     packageVersion: "0.57.1",
   });
-  const patchFile = path.join(root, "DEVELOPMENT.patch"),
+  const patchFile = path.join(installationRoot, "DEVELOPMENT.patch"),
     installationFile = path.join(root, "installation.json"),
     configFile = path.join(root, "startup.json");
   fs.writeFileSync(patchFile, "DEVELOPMENT patch");
@@ -61,8 +71,22 @@ function fixture(cleanup: (callback: () => void) => void) {
     installationFile,
     JSON.stringify({ version: 1, installationId: expected.installationId }),
   );
+  const installationManifestFile = path.join(root, "manifest.json");
+  fs.writeFileSync(
+    installationManifestFile,
+    JSON.stringify(inventoryInstallation(installationRoot)),
+  );
+  const installationManifestHash = bytesHash(fs.readFileSync(installationManifestFile));
+  expected.engineBuildHash = installationBuildHash(
+    engineInventory,
+    expected.engineRevision,
+    installationManifestHash,
+  );
   const config = {
-    version: 1,
+    version: 2,
+    installationRoot,
+    installationManifestFile,
+    installationManifestHash,
     expected,
     engineRoot,
     engineInventory,
@@ -72,6 +96,16 @@ function fixture(cleanup: (callback: () => void) => void) {
     installationFile,
   };
   fs.writeFileSync(configFile, JSON.stringify(config));
+  const guard = createInstallationGuard(config);
+  vi.mocked(readLegalEvidencePreload).mockImplementation(
+    (file, hash, guardedRoot, manifestHash) => {
+      assert.equal(file, configFile);
+      assert.equal(hash, bytesHash(fs.readFileSync(configFile)));
+      assert.equal(guardedRoot, installationRoot);
+      assert.equal(manifestHash, installationManifestHash);
+      return guard;
+    },
+  );
   const options = {
     configFile,
     engineModuleUrls: [pathToFileURL(engineModule).href],
@@ -80,6 +114,7 @@ function fixture(cleanup: (callback: () => void) => void) {
   };
   return {
     root,
+    installationRoot,
     engineRoot,
     engineModule,
     adapterModule,
@@ -207,4 +242,26 @@ test("configured startup refuses clearing or changing the opt-in environment aft
   assert.throws(read, /drift/);
   currentFile = f.configFile + ".other";
   assert.throws(read, /drift/);
+});
+
+for (const dependency of ["undici/index.js", "openai/resources/responses/responses.js"]) {
+  test(`complete startup runtime refuses external dependency drift: ${dependency}`, ({
+    onTestFinished,
+  }) => {
+    const f = fixture(onTestFinished);
+    const file = path.join(f.installationRoot, "node_modules", dependency);
+    const read = readLegalEvidenceStartup(f.options)!;
+    assert.deepEqual(read(), f.expected);
+    fs.appendFileSync(file, "\n// harmless dependency drift");
+    assert.throws(read, /installation|drift/);
+  });
+}
+
+test("startup refuses the old dist-only identity domain", ({ onTestFinished }) => {
+  const f = fixture(onTestFinished);
+  f.config.expected.engineBuildHash = materialInventoryHash(f.config.engineInventory, {
+    engineRevision: f.expected.engineRevision,
+  });
+  fs.writeFileSync(f.configFile, JSON.stringify(f.config));
+  assert.throws(() => readLegalEvidenceStartup(f.options), /drift/);
 });

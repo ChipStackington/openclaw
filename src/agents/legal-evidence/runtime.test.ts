@@ -5,6 +5,11 @@ import path from "node:path";
 import { test } from "vitest";
 import fixtures from "./development-fixtures.json" with { type: "json" };
 import { bytesHash } from "./hash.js";
+import {
+  createInstallationGuard,
+  installationBuildHash,
+  inventoryInstallation,
+} from "./installation.js";
 import { materialInventoryHash, type MaterialInventory } from "./material.js";
 import { createLegalEvidenceRuntimeReader, readCurrentLegalEvidenceRuntime } from "./runtime.js";
 import type { RuntimeIdentity } from "./types.js";
@@ -12,13 +17,14 @@ import type { RuntimeIdentity } from "./types.js";
 function setup(cleanup: (callback: () => void) => void) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "legal-astra-runtime-"));
   cleanup(() => fs.rmSync(root, { recursive: true, force: true }));
-  const engineRoot = path.join(root, "engine"),
-    adapterRoot = path.join(root, "adapter");
-  fs.mkdirSync(engineRoot);
+  const installationRoot = path.join(root, "installation");
+  const engineRoot = path.join(installationRoot, "engine"),
+    adapterRoot = path.join(installationRoot, "adapter");
+  fs.mkdirSync(engineRoot, { recursive: true });
   fs.mkdirSync(adapterRoot);
   const engineModule = path.join(engineRoot, "DEVELOPMENT-capture.js");
   const adapterModule = path.join(adapterRoot, "DEVELOPMENT-provider.js");
-  const patchFile = path.join(root, "DEVELOPMENT.patch");
+  const patchFile = path.join(installationRoot, "DEVELOPMENT.patch");
   fs.writeFileSync(engineModule, "development capture fixture");
   fs.writeFileSync(adapterModule, "development provider fixture");
   fs.writeFileSync(
@@ -39,9 +45,22 @@ function setup(cleanup: (callback: () => void) => void) {
   const engineInventory = inventory(engineRoot),
     adapterInventory = inventory(adapterRoot);
   const expected = structuredClone(fixtures.records.engine.record.runtime) as RuntimeIdentity;
-  expected.engineBuildHash = materialInventoryHash(engineInventory, {
-    engineRevision: expected.engineRevision,
+  const installationManifestFile = path.join(root, "manifest.json");
+  fs.writeFileSync(
+    installationManifestFile,
+    JSON.stringify(inventoryInstallation(installationRoot)),
+  );
+  const installationManifestHash = bytesHash(fs.readFileSync(installationManifestFile));
+  const installationGuard = createInstallationGuard({
+    installationRoot,
+    installationManifestFile,
+    installationManifestHash,
   });
+  expected.engineBuildHash = installationBuildHash(
+    engineInventory,
+    expected.engineRevision,
+    installationManifestHash,
+  );
   expected.adapterContentHash = materialInventoryHash(adapterInventory, {
     package: "@mariozechner/pi-ai",
     packageVersion: "0.57.1",
@@ -53,6 +72,7 @@ function setup(cleanup: (callback: () => void) => void) {
   };
   const options = {
     expected,
+    installationGuard,
     engineRoot,
     engineInventory,
     adapterRoot,

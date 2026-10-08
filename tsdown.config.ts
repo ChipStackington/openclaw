@@ -89,6 +89,9 @@ const pluginSdkEntrypoints = [
 
 export default defineConfig([
   nodeBuildConfig({
+    entry: { "legal-evidence-preload": "src/agents/legal-evidence/preload.ts" },
+  }),
+  nodeBuildConfig({
     entry: "src/index.ts",
   }),
   nodeBuildConfig({
