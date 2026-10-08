@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { Worker } from "node:worker_threads";
 import { checkedDirectory, readCheckedFile } from "./files.js";
 import { bytesHash, evidenceHash, parseEvidenceJson } from "./hash.js";
 import type { MaterialInventory } from "./material.js";
@@ -99,6 +100,92 @@ function hashFile(
     fs.closeSync(fd);
   }
 }
+
+// The bootstrap workers execute only this embedded built-in-only verifier. They do
+// not inherit preload arguments or import engine/provider modules. All workers
+// finish before the second topology scan and before any guard is published.
+const bootstrapWorker = String.raw`
+const {workerData}=require('node:worker_threads');
+const status=new Int32Array(workerData.status), hashes=new Uint8Array(workerData.hashes);
+try {
+  const fs=require('node:fs'), path=require('node:path'), {createHash}=require('node:crypto');
+  const stamp=s=>[s.dev,s.ino,s.mode,s.nlink,s.size,s.mtimeNs,s.ctimeNs].join(':');
+  const buffer=Buffer.allocUnsafe(1048576);
+  for(const entry of workerData.files){
+    const file=path.join(workerData.root,entry.path), before=fs.lstatSync(file,{bigint:true});
+    if(!before.isFile() || before.isSymbolicLink() || before.nlink!==1n || stamp(before)!==entry.stamp){throw Error('drift');}
+    const fd=fs.openSync(file,'r');
+    try {
+      if(stamp(fs.fstatSync(fd,{bigint:true}))!==entry.stamp){throw Error('drift');}
+      const hash=createHash('sha256');let length=0;
+      for(;;){const n=fs.readSync(fd,buffer,0,buffer.length,length);if(!n)break;length+=n;
+        if(length>1073741824 || BigInt(length)>before.size){throw Error('drift');}hash.update(buffer.subarray(0,n));}
+      const named=fs.lstatSync(file,{bigint:true});
+      if(BigInt(length)!==before.size || stamp(fs.fstatSync(fd,{bigint:true}))!==entry.stamp || stamp(named)!==entry.stamp || named.isSymbolicLink()){throw Error('drift');}
+      hashes.set(hash.digest(),entry.index*32);
+    } finally {fs.closeSync(fd);}
+  }
+  Atomics.store(status,workerData.slot,1);
+} catch {Atomics.store(status,workerData.slot,-1);}
+Atomics.notify(status,workerData.slot);
+`;
+function hashInstallationFiles(root: string, entries: Entry[], snapshot: Snapshot): void {
+  const files = entries.filter(
+    (e): e is Entry & { kind: "file"; size: number; sha256: string } => e.kind === "file",
+  );
+  if (files.length < 256) {
+    const buffer = Buffer.allocUnsafe(1_048_576);
+    for (const entry of files) {
+      const file = path.join(root, entry.path),
+        before = stat(file);
+      if (stamp(before) !== snapshot.get(entry.path)) {
+        fail();
+      }
+      entry.sha256 = hashFile(file, before, buffer);
+    }
+    return;
+  }
+  const hashes = new SharedArrayBuffer(files.length * 32),
+    statusBuffer = new SharedArrayBuffer(4 * 4);
+  const status = new Int32Array(statusBuffer),
+    workers: Worker[] = [];
+  const started = Date.now();
+  try {
+    for (let slot = 0; slot < 4; slot++) {
+      const batch = files.flatMap((entry, index) =>
+        index % 4 === slot ? [{ path: entry.path, index, stamp: snapshot.get(entry.path) }] : [],
+      );
+      const worker = new Worker(bootstrapWorker, {
+        eval: true,
+        execArgv: [],
+        workerData: { root, files: batch, hashes, status: statusBuffer, slot },
+      });
+      worker.on("error", () => {});
+      worker.unref();
+      workers.push(worker);
+    }
+    for (;;) {
+      const states = [0, 1, 2, 3].map((slot) => Atomics.load(status, slot));
+      if (states.some((s) => s < 0) || Date.now() - started > 600_000) {
+        fail();
+      }
+      const pending = states.findIndex((s) => s === 0);
+      if (pending === -1) {
+        break;
+      }
+      Atomics.wait(status, pending, 0, 1000);
+    }
+    const bytes = Buffer.from(hashes);
+    files.forEach((entry, index) => {
+      entry.sha256 = bytes.subarray(index * 32, (index + 1) * 32).toString("hex");
+    });
+  } finally {
+    for (const worker of workers) {
+      void worker.terminate();
+    }
+  }
+}
+
 function scan(
   root: string,
   hashFiles: boolean,
@@ -106,7 +193,6 @@ function scan(
   checkedDirectory(root);
   const entries: Entry[] = [],
     snapshot: Snapshot = new Map();
-  const buffer = hashFiles ? Buffer.allocUnsafe(1_048_576) : undefined;
   let files = 0,
     total = 0;
   // Root ancestors are outside manifest membership but may never become links or change identity.
@@ -169,7 +255,7 @@ function scan(
           path: r,
           kind: "file",
           size: Number(s.size),
-          sha256: hashFiles ? hashFile(p, s, buffer) : "",
+          sha256: "",
         });
       } else {
         fail();
@@ -177,6 +263,9 @@ function scan(
     }
   }
   walk(root, "", 0);
+  if (hashFiles) {
+    hashInstallationFiles(root, entries, snapshot);
+  }
   entries.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
   const physical = new Map(entries.map((e) => [e.path, e]));
   for (const e of entries) {
@@ -325,9 +414,14 @@ export function createInstallationGuard(options: {
       if (bytesHash(readCheckedFile(file, limits.manifestBytes)) !== pin) {
         fail();
       }
-      const current = scan(root, true);
+      // The process starts only after all bytes match. Later checks admit only the
+      // unchanged physical generation; no timestamp/age cache or reapproval is used.
+      // Node load hooks separately hash every loaded file/source. This relies on the
+      // trusted host's file identity/change metadata, not protection from host tampering.
+      const bootstrap = baseline === undefined;
+      const current = scan(root, bootstrap);
       if (
-        evidenceHash(current.manifest) !== approved ||
+        (bootstrap && evidenceHash(current.manifest) !== approved) ||
         !equalSnapshots(current.snapshot, scan(root, false).snapshot) ||
         (baseline && !equalSnapshots(baseline, current.snapshot))
       ) {

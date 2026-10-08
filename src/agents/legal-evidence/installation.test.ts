@@ -164,3 +164,46 @@ test("the existing v1 material reader still refuses links and more than 20,000 f
     }),
   );
 });
+
+test("byte drift with the old modification time restored still fails the immutable baseline", ({
+  onTestFinished,
+}) => {
+  const f = fixture(onTestFinished),
+    guard = createInstallationGuard(f.options);
+  const original = fs.statSync(f.file);
+  fs.writeFileSync(f.file, "X".repeat(original.size));
+  fs.utimesSync(f.file, original.atime, original.mtime);
+  assert.throws(guard.verify, /installation-drift/);
+});
+
+test("large complete installation verifies unexecuted assets and refuses an incorrect last file pin", ({
+  onTestFinished,
+}) => {
+  const f = fixture(onTestFinished);
+  const assets = path.join(f.root, "assets");
+  fs.mkdirSync(assets);
+  for (let i = 0; i < 512; i++) {
+    fs.writeFileSync(path.join(assets, i + ".bin"), Buffer.alloc(1024 + i, i % 256));
+  }
+  const manifest = inventoryInstallation(f.root);
+  fs.writeFileSync(f.manifestFile, JSON.stringify(manifest));
+  const options = {
+    ...f.options,
+    installationManifestHash: bytesHash(fs.readFileSync(f.manifestFile)),
+  };
+  const guard = createInstallationGuard(options);
+  guard.verify();
+  const last = manifest.entries.find((e) => e.path === "assets/511.bin");
+  assert.ok(last?.kind === "file");
+  last.sha256 = "0".repeat(64);
+  fs.writeFileSync(f.manifestFile, JSON.stringify(manifest));
+  assert.throws(
+    () =>
+      createInstallationGuard({
+        ...options,
+        installationManifestHash: bytesHash(fs.readFileSync(f.manifestFile)),
+      }),
+    /installation-drift/,
+  );
+  assert.throws(guard.verify, /installation-drift/);
+});
