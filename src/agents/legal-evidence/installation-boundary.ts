@@ -48,7 +48,7 @@ function verifyBoundary(root: string, plan: BoundaryPlan): void {
 
 // These workers import only Node built-ins. Their private baseline is cloned once;
 // every command still checks all assigned physical entries and alias edges twice.
-// The second pass cannot start until all four first passes have completed.
+// The second pass cannot start until all eight first passes have completed.
 const boundaryWorker = String.raw`
 const {workerData}=require('node:worker_threads');
 const fs=require('node:fs'),path=require('node:path');
@@ -70,9 +70,9 @@ function verify(){
 try {
   let seen=0;
   for(;;){
-    while(Atomics.load(state,4)===seen)Atomics.wait(state,4,seen,1000);
-    seen=Atomics.load(state,4);verify();Atomics.store(state,slot,1);Atomics.notify(state,slot);
-    for(;;){const phase=Atomics.load(state,5);if(phase===seen)break;Atomics.wait(state,5,phase,1000);}
+    while(Atomics.load(state,8)===seen)Atomics.wait(state,8,seen,1000);
+    seen=Atomics.load(state,8);verify();Atomics.store(state,slot,1);Atomics.notify(state,slot);
+    for(;;){const phase=Atomics.load(state,9);if(phase===seen)break;Atomics.wait(state,9,phase,1000);}
     verify();Atomics.store(state,slot,2);Atomics.notify(state,slot);
   }
 }catch{Atomics.store(state,slot,-1);Atomics.notify(state,slot);}
@@ -94,7 +94,7 @@ export function createBoundaryVerifier(
       dispose: () => {},
     };
   }
-  const stateBuffer = new SharedArrayBuffer(6 * 4),
+  const stateBuffer = new SharedArrayBuffer(10 * 4),
     state = new Int32Array(stateBuffer);
   const workers: Worker[] = [];
   let generation = 0,
@@ -106,14 +106,14 @@ export function createBoundaryVerifier(
     }
   };
   try {
-    for (let slot = 0; slot < 4; slot++) {
+    for (let slot = 0; slot < 8; slot++) {
       const worker = new Worker(boundaryWorker, {
         eval: true,
         execArgv: [],
         workerData: {
           root,
           ancestors: plan.ancestors,
-          entries: plan.entries.filter((_entry, index) => index % 4 === slot),
+          entries: plan.entries.filter((_entry, index) => index % 8 === slot),
           state: stateBuffer,
           slot,
         },
@@ -135,7 +135,7 @@ export function createBoundaryVerifier(
       const started = Date.now();
       const waitFor = (expected: number) => {
         for (;;) {
-          const values = [0, 1, 2, 3].map((slot) => Atomics.load(state, slot));
+          const values = [0, 1, 2, 3, 4, 5, 6, 7].map((slot) => Atomics.load(state, slot));
           if (values.some((value) => value < 0) || Date.now() - started >= 45_000) {
             dispose();
             fail();
@@ -147,15 +147,15 @@ export function createBoundaryVerifier(
           Atomics.wait(state, pending, values[pending], 25);
         }
       };
-      for (let slot = 0; slot < 4; slot++) {
+      for (let slot = 0; slot < 8; slot++) {
         Atomics.store(state, slot, 0);
       }
       generation++;
-      Atomics.store(state, 4, generation);
-      Atomics.notify(state, 4);
+      Atomics.store(state, 8, generation);
+      Atomics.notify(state, 8);
       waitFor(1);
-      Atomics.store(state, 5, generation);
-      Atomics.notify(state, 5);
+      Atomics.store(state, 9, generation);
+      Atomics.notify(state, 9);
       waitFor(2);
     },
   };
