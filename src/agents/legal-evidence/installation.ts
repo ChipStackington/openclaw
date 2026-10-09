@@ -4,6 +4,7 @@ import path from "node:path";
 import { Worker } from "node:worker_threads";
 import { checkedDirectory, readCheckedFile } from "./files.js";
 import { bytesHash, evidenceHash, parseEvidenceJson } from "./hash.js";
+import { createBoundaryVerifier, type BoundaryPlan } from "./installation-boundary.js";
 import type { MaterialInventory } from "./material.js";
 
 // A separate whole-installation contract. Do not change the v1 material reader's bounds.
@@ -344,15 +345,6 @@ function validate(value: unknown): asserts value is InstallationManifest {
     }
   }
 }
-type BoundaryPlan = Readonly<{
-  ancestors: ReadonlyArray<{ file: string; expected: string }>;
-  entries: ReadonlyArray<{
-    file: string;
-    expected: string;
-    target?: string;
-    names?: ReadonlyArray<string>;
-  }>;
-}>;
 
 function boundaryPlan(
   root: string,
@@ -410,33 +402,6 @@ function boundaryPlan(
   return { entries, ancestors };
 }
 
-function verifyBoundary(root: string, plan: BoundaryPlan): void {
-  for (const { file, expected } of plan.ancestors) {
-    const s = stat(file);
-    if (!s.isDirectory() || s.isSymbolicLink() || [s.dev, s.ino, s.mode].join(":") !== expected) {
-      fail();
-    }
-  }
-  for (const { file, expected, target, names } of plan.entries) {
-    const s = stat(file);
-    if (stamp(s) !== expected) {
-      fail();
-    }
-    if (names) {
-      const actual = fs.readdirSync(file).toSorted();
-      if (actual.length !== names.length || actual.some((name, i) => name !== names[i])) {
-        fail();
-      }
-    }
-    if (target !== undefined) {
-      const raw = fs.readlinkSync(file).replace(/^\\\\\?\\/, "");
-      if (relative(root, path.resolve(path.dirname(file), raw)) !== target) {
-        fail();
-      }
-    }
-  }
-}
-
 /** Candidate generation is not registry or installed-mapping approval. */
 export function inventoryInstallation(root: string): InstallationManifest {
   if (!path.isAbsolute(root)) {
@@ -490,7 +455,7 @@ export function createInstallationGuard(options: {
     manifest.entries.filter((e) => e.kind === "file").map((e) => [e.path, e]),
   );
   let baseline: Snapshot | undefined,
-    plan: BoundaryPlan | undefined,
+    boundary: ReturnType<typeof createBoundaryVerifier> | undefined,
     failed = false;
   const held = <T>(action: () => T): T => {
     if (failed) {
@@ -500,6 +465,7 @@ export function createInstallationGuard(options: {
       return action();
     } catch {
       failed = true;
+      boundary?.dispose();
       return fail();
     }
   };
@@ -508,13 +474,12 @@ export function createInstallationGuard(options: {
       if (bytesHash(readCheckedFile(file, limits.manifestBytes)) !== pin) {
         fail();
       }
-      if (baseline && plan) {
+      if (baseline && boundary) {
         // Every physical member and direct alias edge is checked twice against the
         // immutable bootstrap. Unchanged edges cannot resolve to a new final target
         // while their complete physical graph remains unchanged. Load hooks still
         // resolve the actual file and hash returned source; no age cache is used.
-        verifyBoundary(root, plan);
-        verifyBoundary(root, plan);
+        boundary.verify();
         return;
       }
       const current = scan(root, true);
@@ -525,7 +490,7 @@ export function createInstallationGuard(options: {
         fail();
       }
       baseline = current.snapshot;
-      plan = boundaryPlan(root, manifest, baseline);
+      boundary = createBoundaryVerifier(root, boundaryPlan(root, manifest, baseline));
     });
   verify();
   return Object.freeze({

@@ -274,3 +274,39 @@ test("metadata-stable directory listing tampering cannot hide a new namespace en
   }
   assert.throws(guard.verify, /installation-drift/);
 });
+
+for (const drift of ["asset", "alias"] as const) {
+  test(`large complete boundaries refuse ${drift} replacement and permanently hold after restoration`, ({
+    onTestFinished,
+  }) => {
+    const f = fixture(onTestFinished),
+      assets = path.join(f.root, "assets");
+    fs.mkdirSync(assets);
+    for (let i = 0; i < 512; i++) {
+      fs.writeFileSync(path.join(assets, `${i}.bin`), Buffer.alloc(256, i % 256));
+    }
+    fs.writeFileSync(f.manifestFile, JSON.stringify(inventoryInstallation(f.root)));
+    const guard = createInstallationGuard({
+      ...f.options,
+      installationManifestHash: bytesHash(fs.readFileSync(f.manifestFile)),
+    });
+    guard.verify();
+    guard.verify();
+    if (drift === "asset") {
+      const file = path.join(assets, "511.bin"),
+        bytes = fs.readFileSync(file);
+      fs.writeFileSync(file, Buffer.alloc(bytes.length, 42));
+      assert.throws(guard.verify, /installation-drift/);
+      fs.writeFileSync(file, bytes);
+    } else {
+      fs.unlinkSync(f.alias);
+      fs.symlinkSync(
+        path.dirname(f.file),
+        f.alias,
+        process.platform === "win32" ? "junction" : "dir",
+      );
+      assert.throws(guard.verify, /installation-drift/);
+    }
+    assert.throws(guard.verify, /installation-drift/);
+  });
+}
