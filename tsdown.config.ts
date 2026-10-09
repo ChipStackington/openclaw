@@ -99,6 +99,10 @@ export default defineConfig([
   }),
   nodeBuildConfig({
     entry: "src/gateway-rpc.ts",
+    // This one-shot child starts inside the app's existing connection lease.
+    // Bundle its dependencies to avoid separate startup filesystem reads;
+    // keep the same config, credential, device and protocol implementations.
+    deps: { alwaysBundle: [/.*/] },
   }),
   nodeBuildConfig({
     // Ensure this module is bundled as an entry so legacy CLI shims can resolve its exports.
