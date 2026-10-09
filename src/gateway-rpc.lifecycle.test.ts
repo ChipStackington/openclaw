@@ -109,7 +109,9 @@ test("the narrow helper exits after its receipt while the server cannot finish a
       `helper held the receipt lease ${result.exitAt - result.resolvedAt}ms waiting for the server close handshake`,
     );
   } finally {
-    for (const socket of server.clients) socket.terminate();
+    for (const socket of server.clients) {
+      socket.terminate();
+    }
     await new Promise<void>((resolve) => server.close(() => resolve()));
     fs.rmSync(home, { recursive: true, force: true });
   }
