@@ -64,6 +64,14 @@ export function createLegalEvidenceRuntimeReader(options: {
   const engineRoot = path.resolve(config.engineRoot),
     adapterRoot = path.resolve(config.adapterRoot);
   const patchFile = path.resolve(config.patchFile);
+  // Cached v1 binding is valid only when the immutable installation baseline
+  // covers both complete inventories, including roots and unloaded assets.
+  for (const root of [engineRoot, adapterRoot]) {
+    const relative = path.relative(path.resolve(installationGuard.root), root);
+    if (relative === ".." || relative.startsWith(".." + path.sep) || path.isAbsolute(relative)) {
+      installationGuard.refuse();
+    }
+  }
   function measuredModule(root: string, inventory: MaterialInventory, file: string): void {
     if (typeof file !== "string" || !path.isAbsolute(file)) {
       throw new Error("legal-evidence-loaded-module");
@@ -90,6 +98,16 @@ export function createLegalEvidenceRuntimeReader(options: {
   installationGuard.verify();
   const engine = measureMaterialInventory(engineRoot, engineInventory);
   const adapter = measureMaterialInventory(adapterRoot, adapterInventory);
+  // Validate strict v1 paths/limits before resolving members. assertFile proves
+  // each member's immutable baseline membership and bytes, with sticky refusal.
+  for (const [root, inventory] of [
+    [engineRoot, engine],
+    [adapterRoot, adapter],
+  ] as const) {
+    for (const member of inventory.files) {
+      installationGuard.assertFile(path.join(root, ...member.path.split("/")));
+    }
+  }
   const pkg = parseEvidenceJson(
     readCheckedFile(path.join(adapterRoot, "package.json"), 1_000_000),
     1_000_000,
