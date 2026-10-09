@@ -29,6 +29,7 @@ it("uses the ordinary CLI identity, config and authentication client without wai
     params,
     timeoutMs: 8000,
     expectFinal: false,
+    terminateOnResponse: true,
     clientName: "cli",
     mode: "cli",
   });

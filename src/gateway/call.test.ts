@@ -22,6 +22,7 @@ let startMode: StartMode = "hello";
 let closeCode = 1006;
 let closeReason = "";
 let helloMethods: string[] | undefined = ["health", "secrets.resolve"];
+let lastStopOptions: { terminate?: boolean } | undefined;
 
 vi.mock("./client.js", () => ({
   describeGatewayCloseCode: (code: number) => {
@@ -58,7 +59,9 @@ vi.mock("./client.js", () => ({
         lastClientOptions?.onClose?.(closeCode, closeReason);
       }
     }
-    stop() {}
+    stop(options?: { terminate?: boolean }) {
+      lastStopOptions = options;
+    }
   },
 }));
 
@@ -75,6 +78,7 @@ function resetGatewayCallMocks() {
   closeCode = 1006;
   closeReason = "";
   helloMethods = ["health", "secrets.resolve"];
+  lastStopOptions = undefined;
 }
 
 function setGatewayNetworkDefaults(port = 18789) {
@@ -108,6 +112,27 @@ describe("callGateway url resolution", () => {
   beforeEach(() => {
     envSnapshot.restore();
     resetGatewayCallMocks();
+  });
+
+  it("ordinary calls retain graceful receipt shutdown", async () => {
+    setLocalLoopbackGatewayConfig();
+    await callGateway({ method: "health" });
+    expect(lastStopOptions).toEqual({ terminate: false });
+  });
+
+  it("one-shot helpers release the connection only after a successful receipt", async () => {
+    setLocalLoopbackGatewayConfig();
+    await callGateway({ method: "health", terminateOnResponse: true });
+    expect(lastStopOptions).toEqual({ terminate: true });
+  });
+
+  it("uncertain close still rejects and does not use successful-receipt termination", async () => {
+    setLocalLoopbackGatewayConfig();
+    startMode = "close";
+    await expect(callGateway({ method: "health", terminateOnResponse: true })).rejects.toThrow(
+      /gateway closed/,
+    );
+    expect(lastStopOptions).toBeUndefined();
   });
 
   afterEach(() => {

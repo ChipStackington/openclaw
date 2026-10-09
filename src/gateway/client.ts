@@ -221,13 +221,17 @@ export class GatewayClient {
     });
   }
 
-  stop() {
+  stop(options?: { terminate?: boolean }) {
     this.closed = true;
     if (this.tickTimer) {
       clearInterval(this.tickTimer);
       this.tickTimer = null;
     }
-    this.ws?.close();
+    if (options?.terminate) {
+      this.ws?.terminate();
+    } else {
+      this.ws?.close();
+    }
     this.ws = null;
     this.flushPendingErrors(new Error("gateway client stopped"));
   }

@@ -44,6 +44,9 @@ type CallGatewayBaseOptions = {
   method: string;
   params?: unknown;
   expectFinal?: boolean;
+  /** One-shot helpers release their process lease after the complete RPC receipt,
+   * without waiting for the busy server's WebSocket close handshake. */
+  terminateOnResponse?: boolean;
   timeoutMs?: number;
   clientName?: GatewayClientName;
   clientDisplayName?: string;
@@ -833,7 +836,7 @@ async function executeGatewayRequestWithScopes<T>(params: {
           });
           ignoreClose = true;
           stop(undefined, result);
-          client.stop();
+          client.stop({ terminate: opts.terminateOnResponse === true });
         } catch (err) {
           ignoreClose = true;
           client.stop();

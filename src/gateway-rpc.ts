@@ -22,6 +22,7 @@ export async function callGatewayRpc(
     params,
     timeoutMs,
     expectFinal: false,
+    terminateOnResponse: true,
     clientName: GATEWAY_CLIENT_NAMES.CLI,
     mode: GATEWAY_CLIENT_MODES.CLI,
   });
