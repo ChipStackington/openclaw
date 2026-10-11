@@ -477,3 +477,135 @@ for (const boundary of ["send", "seal"] as const) {
     }
   });
 }
+
+function deferredRuntime(runtime: RuntimeIdentity) {
+  let release!: () => void;
+  const waiting = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let blocked = true;
+  let calls = 0;
+  const read = Object.assign(() => structuredClone(runtime), {
+    readAsync: async () => {
+      calls++;
+      if (blocked) {
+        await waiting;
+      }
+      return structuredClone(runtime);
+    },
+  });
+  return {
+    read,
+    release: () => {
+      blocked = false;
+      release();
+    },
+    calls: () => calls,
+  };
+}
+
+test("async capture construction rechecks durable reservation after waiting", async ({
+  onTestFinished,
+}) => {
+  const { store, r } = setup(onTestFinished);
+  const pendingRuntime = deferredRuntime(r.runtime);
+  const envelope = store.read(r.operationId);
+  const pending = LegalEvidenceCapture.fromReservedAsync(
+    store,
+    envelope,
+    "offline",
+    pendingRuntime.read,
+  );
+  const changed = structuredClone(envelope.record);
+  changed.state = "unknown";
+  store.commit(changed, envelope.hash);
+  pendingRuntime.release();
+  await assert.rejects(pending, /assignment-binding/);
+  assert.equal(store.read(r.operationId).record.state, "unknown");
+});
+
+test("failure while async send waits prevents any physical request reservation", async ({
+  onTestFinished,
+}) => {
+  const { store, r } = setup(onTestFinished);
+  const pendingRuntime = deferredRuntime(r.runtime);
+  const capture = LegalEvidenceCapture.fromReserved(
+    store,
+    store.read(r.operationId),
+    "offline",
+    pendingRuntime.read,
+  );
+  capture.candidate("openai-codex", "gpt-6.1-sol", "high");
+  capture.runnerStarted();
+  const pending = capture.observer.onRequest(request);
+  await capture.observer.onFailure("transport-unknown");
+  pendingRuntime.release();
+  await assert.rejects(pending, /held/);
+  const saved = store.read(r.operationId).record;
+  assert.equal(saved.attempts.length, 0);
+  assert.equal(saved.state, "unknown");
+});
+
+test("concurrent awaited sends cannot reserve a second physical request", async ({
+  onTestFinished,
+}) => {
+  const { store, r } = setup(onTestFinished);
+  const pendingRuntime = deferredRuntime(r.runtime);
+  const capture = LegalEvidenceCapture.fromReserved(
+    store,
+    store.read(r.operationId),
+    "offline",
+    pendingRuntime.read,
+  );
+  capture.candidate("openai-codex", "gpt-6.1-sol", "high");
+  capture.runnerStarted();
+  const results = Promise.allSettled([
+    capture.observer.onRequest(request),
+    capture.observer.onRequest(request),
+  ]);
+  pendingRuntime.release();
+  const outcomes = await results;
+  assert.equal(outcomes.filter((result) => result.status === "fulfilled").length, 1);
+  assert.equal(outcomes.filter((result) => result.status === "rejected").length, 1);
+  assert.equal(store.read(r.operationId).record.attempts.length, 1);
+});
+
+for (const failDuringWait of [false, true]) {
+  test(`async seal rechecks capture state after waiting (failure=${failDuringWait})`, async ({
+    onTestFinished,
+  }) => {
+    const { store, r } = setup(onTestFinished);
+    const pendingRuntime = deferredRuntime(r.runtime);
+    const read = Object.assign(() => structuredClone(r.runtime), {
+      readAsync: async () => structuredClone(r.runtime),
+    });
+    const capture = await LegalEvidenceCapture.fromReservedAsync(
+      store,
+      store.read(r.operationId),
+      "offline",
+      read,
+    );
+    capture.candidate("openai-codex", "gpt-6.1-sol", "high");
+    capture.runnerStarted();
+    await capture.observer.onRequest(request);
+    await capture.observer.onResponse({ status: 200, contentType: "text/event-stream" });
+    await capture.observer.onChunk(frame());
+    await capture.observer.onTerminal(frame());
+    await capture.observer.onComplete({ text, stopReason: "stop", toolCalls: 0 });
+    read.readAsync = pendingRuntime.read.readAsync;
+    const pending = capture.finishRunnerAsync(clean);
+    assert.equal(store.read(r.operationId).record.state, "running");
+    if (failDuringWait) {
+      await capture.observer.onFailure("transport-unknown");
+    }
+    pendingRuntime.release();
+    if (failDuringWait) {
+      await assert.rejects(pending, /held/);
+      assert.equal(store.read(r.operationId).record.state, "unknown");
+    } else {
+      await pending;
+      assert.equal(store.read(r.operationId).record.state, "completed");
+    }
+    assert.equal(pendingRuntime.calls(), 1);
+  });
+}

@@ -1501,7 +1501,7 @@ export async function runEmbeddedPiAgent(
               agentDir: params.agentDir,
             });
           }
-          params.legalEvidenceCapture?.finishRunner({
+          await params.legalEvidenceCapture?.finishRunnerAsync({
             aborted,
             compactions: autoCompactionCount,
             toolCalls: attempt.toolMetas.length + Number(Boolean(attempt.clientToolCall)),

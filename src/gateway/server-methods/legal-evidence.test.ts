@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import fixtures from "../../agents/legal-evidence/development-fixtures.json" with { type: "json" };
+import type { RuntimeIdentity } from "../../agents/legal-evidence/types.js";
 import { legalEvidenceHandlers } from "./legal-evidence.js";
 import type { GatewayClient, GatewayRequestContext } from "./types.js";
 
@@ -94,4 +95,36 @@ it("cached runtime metadata cannot advertise a current measured capability", asy
     } as GatewayRequestContext,
   });
   expect(respond.mock.calls[0][0]).toBe(false);
+});
+
+it("capability RPC awaits the asynchronous complete runtime check", async () => {
+  const respond = vi.fn();
+  let release!: () => void;
+  const waiting = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const runtime = fixtures.records.engine.record.runtime as RuntimeIdentity;
+  const read = Object.assign(
+    () => {
+      throw Error("synchronous runtime path used");
+    },
+    {
+      readAsync: async () => {
+        await waiting;
+        return structuredClone(runtime);
+      },
+    },
+  );
+  const pending = legalEvidenceHandlers["agent.evidence.capabilities"]({
+    params: {},
+    client: client(),
+    isWebchatConnect: () => false,
+    respond,
+    req: { type: "req", id: "async-capability", method: "agent.evidence.capabilities" },
+    context: { ...context(), legalEvidenceReadRuntime: read },
+  });
+  expect(respond).not.toHaveBeenCalled();
+  release();
+  await pending;
+  expect(respond).toHaveBeenCalledWith(true, expect.objectContaining({ runtime }));
 });

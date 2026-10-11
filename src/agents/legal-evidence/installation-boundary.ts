@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { setImmediate as yieldTurn, setTimeout as wait } from "node:timers/promises";
 import { Worker } from "node:worker_threads";
 
 export type BoundaryPlan = Readonly<{
@@ -83,23 +84,77 @@ export function createBoundaryVerifier(
   plan: BoundaryPlan,
 ): {
   verify: () => void;
+  verifyAsync: () => Promise<void>;
   dispose: () => void;
 } {
+  // Each caller owns a new complete two-pass boundary; queued calls never reuse
+  // an earlier generation. Its existing deadline includes time spent in this queue.
+  let tail = Promise.resolve();
+  let pending = 0;
+  const enqueue = (action: (started: number) => Promise<void>) => {
+    const started = Date.now();
+    pending++;
+    const result = tail
+      .then(() => action(started))
+      .finally(() => {
+        pending--;
+      });
+    tail = result.catch(() => {});
+    return result;
+  };
   if (plan.entries.length < 256) {
+    let disposed = false;
+    const check = (started: number) => {
+      if (disposed || Date.now() - started >= 45_000) {
+        fail();
+      }
+    };
     return {
       verify: () => {
-        verifyBoundary(root, plan);
-        verifyBoundary(root, plan);
+        try {
+          if (disposed || pending) {
+            fail();
+          }
+          verifyBoundary(root, plan);
+          verifyBoundary(root, plan);
+        } catch {
+          disposed = true;
+          fail();
+        }
       },
-      dispose: () => {},
+      verifyAsync: () =>
+        enqueue(async (started) => {
+          try {
+            for (let pass = 0; pass < 2; pass++) {
+              check(started);
+              verifyBoundary(root, { ancestors: plan.ancestors, entries: [] });
+              for (let i = 0; i < plan.entries.length; i += 64) {
+                await yieldTurn();
+                check(started);
+                verifyBoundary(root, { ancestors: [], entries: plan.entries.slice(i, i + 64) });
+              }
+            }
+            check(started);
+          } catch {
+            disposed = true;
+            fail();
+          }
+        }),
+      dispose: () => {
+        disposed = true;
+      },
     };
   }
   const stateBuffer = new SharedArrayBuffer(10 * 4),
     state = new Int32Array(stateBuffer);
   const workers: Worker[] = [];
   let generation = 0,
-    disposed = false;
+    disposed = false,
+    workerFailed = false;
   const dispose = () => {
+    if (disposed) {
+      return;
+    }
     disposed = true;
     for (const worker of workers) {
       void worker.terminate();
@@ -118,7 +173,12 @@ export function createBoundaryVerifier(
           slot,
         },
       });
-      worker.on("error", () => {});
+      worker.on("error", () => {
+        workerFailed = true;
+      });
+      worker.on("exit", () => {
+        workerFailed = true;
+      });
       worker.unref();
       workers.push(worker);
     }
@@ -128,8 +188,52 @@ export function createBoundaryVerifier(
   }
   return {
     dispose,
+    verifyAsync: () =>
+      enqueue(async (started) => {
+        const check = () => {
+          if (disposed || workerFailed || Date.now() - started >= 45_000) {
+            fail();
+          }
+        };
+        const waitFor = async (expected: number) => {
+          for (;;) {
+            check();
+            const values = Array.from({ length: 8 }, (_, slot) => Atomics.load(state, slot));
+            if (values.some((value) => value < 0)) {
+              fail();
+            }
+            if (values.every((value) => value === expected)) {
+              return;
+            }
+            // Never block the gateway event loop while the built-in-only workers scan.
+            await wait(5);
+          }
+        };
+        try {
+          check();
+          if (generation === 2_147_483_647) {
+            fail();
+          }
+          for (let slot = 0; slot < 8; slot++) {
+            Atomics.store(state, slot, 0);
+          }
+          generation++;
+          Atomics.store(state, 8, generation);
+          Atomics.notify(state, 8);
+          await waitFor(1);
+          check();
+          Atomics.store(state, 9, generation);
+          Atomics.notify(state, 9);
+          await waitFor(2);
+          check();
+        } catch {
+          dispose();
+          fail();
+        }
+      }),
     verify: () => {
-      if (disposed || generation === 2_147_483_647) {
+      if (disposed || pending || generation === 2_147_483_647) {
+        dispose();
         fail();
       }
       const started = Date.now();

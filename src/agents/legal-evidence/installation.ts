@@ -27,6 +27,7 @@ export type InstallationGuard = Readonly<{
   root: string;
   manifestHash: string;
   verify: () => void;
+  verifyAsync: () => Promise<void>;
   refuse: () => never;
   assertFile: (file: string) => string;
 }>;
@@ -497,6 +498,25 @@ export function createInstallationGuard(options: {
     root,
     manifestHash: pin,
     verify,
+    verifyAsync: async () => {
+      // Bootstrap is complete before publication. A failure anywhere, including a
+      // loaded-byte hook while this call awaits, permanently revokes every caller.
+      held(() => {
+        if (!boundary || bytesHash(readCheckedFile(file, limits.manifestBytes)) !== pin) {
+          fail();
+        }
+      });
+      try {
+        await boundary!.verifyAsync();
+        held(() => {
+          if (bytesHash(readCheckedFile(file, limits.manifestBytes)) !== pin) {
+            fail();
+          }
+        });
+      } catch {
+        held(fail);
+      }
+    },
     refuse: () => held(fail),
     assertFile: (file: string) =>
       held(() => {

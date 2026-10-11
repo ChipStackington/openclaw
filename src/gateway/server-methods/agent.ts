@@ -9,7 +9,7 @@ import {
   reserveLegalEvidenceIngress,
   type EvidencePeer,
 } from "../../agents/legal-evidence/gateway.js";
-import { readCurrentLegalEvidenceRuntime } from "../../agents/legal-evidence/runtime.js";
+import { readCurrentLegalEvidenceRuntimeAsync } from "../../agents/legal-evidence/runtime.js";
 import { EngineEvidenceStore } from "../../agents/legal-evidence/store.js";
 import type { CaptureRequest } from "../../agents/legal-evidence/types.js";
 import {
@@ -334,7 +334,7 @@ export const agentHandlers: GatewayRequestHandlers = {
           descriptor: request.legalEvidence,
           params: p,
           peer: legalEvidencePeer,
-          runtime: readCurrentLegalEvidenceRuntime(context.legalEvidenceReadRuntime),
+          runtime: await readCurrentLegalEvidenceRuntimeAsync(context.legalEvidenceReadRuntime),
           activeOperationIds: context.legalEvidenceActiveOperationIds,
         });
         if (existing) {
@@ -762,7 +762,7 @@ export const agentHandlers: GatewayRequestHandlers = {
           descriptor: request.legalEvidence,
           params: p,
           peer: legalEvidencePeer,
-          runtime: readCurrentLegalEvidenceRuntime(context.legalEvidenceReadRuntime),
+          runtime: await readCurrentLegalEvidenceRuntimeAsync(context.legalEvidenceReadRuntime),
           activeOperationIds: context.legalEvidenceActiveOperationIds,
         });
         if (existing) {
@@ -781,7 +781,7 @@ export const agentHandlers: GatewayRequestHandlers = {
           descriptor: request.legalEvidence,
           params: p,
           peer: legalEvidencePeer,
-          runtime: readCurrentLegalEvidenceRuntime(context.legalEvidenceReadRuntime),
+          runtime: await readCurrentLegalEvidenceRuntimeAsync(context.legalEvidenceReadRuntime),
           activeOperationIds: context.legalEvidenceActiveOperationIds,
         });
         if (!reservation.created) {
@@ -795,7 +795,7 @@ export const agentHandlers: GatewayRequestHandlers = {
         const activeOperationIds = (context.legalEvidenceActiveOperationIds ??= new Set<string>());
         activeOperationIds.add(reservation.envelope.record.operationId);
         try {
-          legalEvidenceCapture = LegalEvidenceCapture.fromReserved(
+          legalEvidenceCapture = await LegalEvidenceCapture.fromReservedAsync(
             legalEvidenceStore,
             reservation.envelope,
             request.message,

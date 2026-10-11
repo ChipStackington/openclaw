@@ -1,6 +1,6 @@
 import path from "node:path";
 import {
-  getLegalEvidenceCapabilities,
+  getLegalEvidenceCapabilitiesAsync,
   getLegalEvidenceOperation,
   readLegalEvidenceBlob,
   resolveEvidenceClientBinding,
@@ -41,7 +41,7 @@ function sendFailure(respond: RespondFn, error: unknown) {
 }
 
 export const legalEvidenceHandlers: GatewayRequestHandlers = {
-  "agent.evidence.capabilities": ({ params, client, isWebchatConnect, respond, context }) => {
+  "agent.evidence.capabilities": async ({ params, client, isWebchatConnect, respond, context }) => {
     try {
       assertEvidenceSchema("EvidenceCapabilityParams", params);
       const peer = peerFromClient(
@@ -49,7 +49,9 @@ export const legalEvidenceHandlers: GatewayRequestHandlers = {
         client?.connect ? isWebchatConnect(client.connect) : true,
       );
       resolveEvidenceClientBinding(peer, "operator.read");
-      const capabilities = getLegalEvidenceCapabilities(context.legalEvidenceReadRuntime);
+      const capabilities = await getLegalEvidenceCapabilitiesAsync(
+        context.legalEvidenceReadRuntime,
+      );
       if (!capabilities) {
         throw new Error("legal-evidence-runtime-unavailable");
       }

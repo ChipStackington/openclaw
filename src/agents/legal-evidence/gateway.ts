@@ -1,6 +1,9 @@
 import { bytesHash, evidenceHash } from "./hash.js";
 import { assertLegalEvidencePolicy } from "./policy.js";
-import { readCurrentLegalEvidenceRuntime } from "./runtime.js";
+import {
+  readCurrentLegalEvidenceRuntime,
+  readCurrentLegalEvidenceRuntimeAsync,
+} from "./runtime.js";
 import { assertEvidenceSchema } from "./schema.js";
 import { EngineEvidenceStore } from "./store.js";
 import type {
@@ -291,6 +294,26 @@ export function getLegalEvidenceCapabilities(reader: unknown): Capabilities | un
   let runtime: RuntimeIdentity;
   try {
     runtime = readCurrentLegalEvidenceRuntime(reader);
+  } catch {
+    return undefined;
+  }
+  return {
+    schemaVersion: 1,
+    available: true,
+    runtime: structuredClone(runtime),
+    modelPolicy: "quinn-legal-single-request-v1",
+    physicalRequestCeiling: 1,
+    transport: "sse",
+    holdReason: "none",
+  };
+}
+
+export async function getLegalEvidenceCapabilitiesAsync(
+  reader: unknown,
+): Promise<Capabilities | undefined> {
+  let runtime: RuntimeIdentity;
+  try {
+    runtime = await readCurrentLegalEvidenceRuntimeAsync(reader);
   } catch {
     return undefined;
   }

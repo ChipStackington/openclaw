@@ -223,7 +223,7 @@ function context() {
   return {
     providerContinuations: 0,
     runnerStarted: vi.fn(),
-    finishRunner: vi.fn(),
+    finishRunnerAsync: vi.fn(),
     deny: vi.fn(() => {
       throw Error("legal-evidence-held");
     }),
@@ -277,11 +277,11 @@ it("private context is forwarded and only an actual clean attempt seals", async 
   });
   const mockedCapture = capture as unknown as {
     runnerStarted: ReturnType<typeof vi.fn>;
-    finishRunner: ReturnType<typeof vi.fn>;
+    finishRunnerAsync: ReturnType<typeof vi.fn>;
   };
   expect(mockedRunEmbeddedAttempt.mock.calls[0][0].legalEvidenceCapture).toBe(capture);
   expect(mockedCapture.runnerStarted).toHaveBeenCalledTimes(1);
-  expect(mockedCapture.finishRunner).toHaveBeenCalledWith({
+  expect(mockedCapture.finishRunnerAsync).toHaveBeenCalledWith({
     aborted: false,
     compactions: 0,
     toolCalls: 0,
@@ -290,4 +290,28 @@ it("private context is forwarded and only an actual clean attempt seals", async 
     thinkingDowngrades: 0,
     authRotations: 0,
   });
+});
+
+it("does not return the runner result until the asynchronous seal completes", async () => {
+  const capture = context();
+  let release!: () => void;
+  const waiting = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  vi.mocked(capture.finishRunnerAsync).mockImplementation(() => waiting);
+  mockedRunEmbeddedAttempt.mockResolvedValueOnce(makeAttemptResult({ promptError: null }));
+  let returned = false;
+  const pending = runEmbeddedPiAgent({
+    ...overflowBaseRunParams,
+    legalEvidenceCapture: capture,
+    disableTools: true,
+  }).then((value) => {
+    returned = true;
+    return value;
+  });
+  await vi.waitFor(() => expect(capture.finishRunnerAsync).toHaveBeenCalledOnce());
+  expect(returned).toBe(false);
+  release();
+  await pending;
+  expect(returned).toBe(true);
 });

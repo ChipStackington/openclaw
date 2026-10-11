@@ -4,7 +4,11 @@ import path from "node:path";
 import type { StreamFn } from "@mariozechner/pi-agent-core";
 import { checkedDirectory, readCheckedFile } from "./files.js";
 import { bytesHash, evidenceJsonV1, parseEvidenceJson } from "./hash.js";
-import { assertCurrentLegalEvidenceRuntime, type LegalEvidenceRuntimeReader } from "./runtime.js";
+import {
+  assertCurrentLegalEvidenceRuntime,
+  assertCurrentLegalEvidenceRuntimeAsync,
+  type LegalEvidenceRuntimeReader,
+} from "./runtime.js";
 import { EngineEvidenceStore } from "./store.js";
 import type {
   DecisionEvent,
@@ -239,6 +243,15 @@ export class LegalEvidenceCapture {
     submittedAssignment: string,
     readRuntime: LegalEvidenceRuntimeReader,
   ): LegalEvidenceCapture {
+    LegalEvidenceCapture.assertReserved(store, envelope, submittedAssignment);
+    assertCurrentLegalEvidenceRuntime(readRuntime, envelope.record.runtime);
+    return new LegalEvidenceCapture(store, envelope, submittedAssignment, readRuntime);
+  }
+  private static assertReserved(
+    store: EngineEvidenceStore,
+    envelope: EngineEnvelope,
+    submittedAssignment: string,
+  ): void {
     if (typeof submittedAssignment !== "string" || submittedAssignment.length === 0) {
       throw new Error("legal-evidence-assignment-binding");
     }
@@ -253,8 +266,18 @@ export class LegalEvidenceCapture {
     ) {
       throw new Error("legal-evidence-assignment-binding");
     }
-    assertCurrentLegalEvidenceRuntime(readRuntime, envelope.record.runtime);
-    return new LegalEvidenceCapture(store, envelope, submittedAssignment, readRuntime);
+  }
+  static async fromReservedAsync(
+    store: EngineEvidenceStore,
+    envelope: EngineEnvelope,
+    submittedAssignment: string,
+    readRuntime: LegalEvidenceRuntimeReader,
+  ): Promise<LegalEvidenceCapture> {
+    // Snapshot caller-owned input, then recheck durable reservation after the await.
+    const snapshot = structuredClone(envelope);
+    await assertCurrentLegalEvidenceRuntimeAsync(readRuntime, snapshot.record.runtime);
+    LegalEvidenceCapture.assertReserved(store, snapshot, submittedAssignment);
+    return new LegalEvidenceCapture(store, snapshot, submittedAssignment, readRuntime);
   }
   get binding() {
     return structuredClone(this.envelope.record.binding);
@@ -268,6 +291,16 @@ export class LegalEvidenceCapture {
     }
     try {
       return action();
+    } catch (error) {
+      this.held ??= "capture-io";
+      this.closeSpool();
+      throw error;
+    }
+  }
+  private async guardAsync<T>(action: () => Promise<T>): Promise<T> {
+    this.guard(() => {});
+    try {
+      return await action();
     } catch (error) {
       this.held ??= "capture-io";
       this.closeSpool();
@@ -400,111 +433,118 @@ export class LegalEvidenceCapture {
   }
   readonly observer = {
     onRequest: async (request: WireRequest): Promise<void> =>
-      this.guard(() => {
-        assertCurrentLegalEvidenceRuntime(this.readRuntime, this.envelope.record.runtime);
-        if (this.reserved || this.envelope.record.attempts.length || this.runnerCount !== 1) {
-          this.deny();
-        }
-        const expected = this.binding.expected,
-          bytes = Buffer.from(request.body);
-        if (bytes.length > 2_000_000) {
-          this.reject("evidence-limit");
-        }
-        const body = object(parseEvidenceJson(bytes, 2_000_000)),
-          reasoning = object(body.reasoning);
-        if (
-          request.url !== endpoint ||
-          request.method !== "POST" ||
-          request.transport !== "sse" ||
-          request.httpAttemptIndex !== 0 ||
-          request.provider !== expected.provider ||
-          request.model !== expected.model ||
-          body.model !== expected.model ||
-          reasoning.effort !== expected.effort ||
-          body.stream !== true ||
-          (body.tools !== undefined && (!Array.isArray(body.tools) || body.tools.length > 0)) ||
-          !Array.isArray(body.input) ||
-          body.input.length === 0
-        ) {
-          this.reject("metadata-mismatch");
-        }
-        let assignmentCount = 0;
-        let assignment = "";
-        for (const value of body.input) {
-          const item = object(value);
-          if (item.type === "function_call" || item.type === "function_call_output") {
-            this.reject("metadata-mismatch");
+      this.guardAsync(async () => {
+        // Copy mutable wire metadata before yielding; recheck held/reserved state afterward.
+        request = structuredClone(request);
+        await assertCurrentLegalEvidenceRuntimeAsync(
+          this.readRuntime,
+          this.envelope.record.runtime,
+        );
+        return this.guard(() => {
+          if (this.reserved || this.envelope.record.attempts.length || this.runnerCount !== 1) {
+            this.deny();
           }
-          if (item.type === "reasoning") {
-            if (item.content !== undefined) {
-              this.reject("metadata-mismatch");
-            }
-            continue;
+          const expected = this.binding.expected,
+            bytes = Buffer.from(request.body);
+          if (bytes.length > 2_000_000) {
+            this.reject("evidence-limit");
           }
+          const body = object(parseEvidenceJson(bytes, 2_000_000)),
+            reasoning = object(body.reasoning);
           if (
-            (item.type !== undefined && item.type !== "message") ||
-            !["assistant", "developer", "system", "user"].includes(String(item.role))
+            request.url !== endpoint ||
+            request.method !== "POST" ||
+            request.transport !== "sse" ||
+            request.httpAttemptIndex !== 0 ||
+            request.provider !== expected.provider ||
+            request.model !== expected.model ||
+            body.model !== expected.model ||
+            reasoning.effort !== expected.effort ||
+            body.stream !== true ||
+            (body.tools !== undefined && (!Array.isArray(body.tools) || body.tools.length > 0)) ||
+            !Array.isArray(body.input) ||
+            body.input.length === 0
           ) {
             this.reject("metadata-mismatch");
           }
-          if (typeof item.content === "string") {
-            if (item.role === "user") {
-              assignmentCount++;
-              assignment = item.content;
+          let assignmentCount = 0;
+          let assignment = "";
+          for (const value of body.input) {
+            const item = object(value);
+            if (item.type === "function_call" || item.type === "function_call_output") {
+              this.reject("metadata-mismatch");
             }
-            continue;
-          }
-          if (!Array.isArray(item.content) || item.content.length === 0) {
-            this.reject("metadata-mismatch");
-          }
-          for (const value of item.content) {
-            const part = object(value);
+            if (item.type === "reasoning") {
+              if (item.content !== undefined) {
+                this.reject("metadata-mismatch");
+              }
+              continue;
+            }
             if (
-              (part.type !== "input_text" && part.type !== "output_text") ||
-              typeof part.text !== "string" ||
-              (item.role === "user" && part.type !== "input_text")
+              (item.type !== undefined && item.type !== "message") ||
+              !["assistant", "developer", "system", "user"].includes(String(item.role))
             ) {
               this.reject("metadata-mismatch");
             }
+            if (typeof item.content === "string") {
+              if (item.role === "user") {
+                assignmentCount++;
+                assignment = item.content;
+              }
+              continue;
+            }
+            if (!Array.isArray(item.content) || item.content.length === 0) {
+              this.reject("metadata-mismatch");
+            }
+            for (const value of item.content) {
+              const part = object(value);
+              if (
+                (part.type !== "input_text" && part.type !== "output_text") ||
+                typeof part.text !== "string" ||
+                (item.role === "user" && part.type !== "input_text")
+              ) {
+                this.reject("metadata-mismatch");
+              }
+              if (item.role === "user") {
+                assignment += part.text;
+              }
+            }
             if (item.role === "user") {
-              assignment += part.text;
+              assignmentCount++;
             }
           }
-          if (item.role === "user") {
-            assignmentCount++;
+          if (assignmentCount !== 1 || assignment !== this.submittedAssignment) {
+            this.reject("metadata-mismatch");
           }
-        }
-        if (assignmentCount !== 1 || assignment !== this.submittedAssignment) {
-          this.reject("metadata-mismatch");
-        }
-        // An uncertain commit consumes the in-memory budget before any storage write.
-        this.reserved = true;
-        const record = structuredClone(this.envelope.record),
-          at = new Date().toISOString();
-        const requestBody = this.store.putBlob("request-body", bytes);
-        record.attempts = [
-          {
-            id: randomUUID(),
-            ordinal: 1,
-            candidateIndex: 0,
-            runnerIndex: 0,
-            providerInvocationIndex: 0,
-            adapterHttpAttemptIndex: 0,
-            provider: expected.provider,
-            model: expected.model,
-            effort: expected.effort,
-            transport: "sse",
-            requestBody,
-            preparedAt: at,
-            sendIntentAt: at,
-            state: "send-intent",
-            endpointClass: "chatgpt-codex-backend",
-            method: "POST",
-          },
-        ];
-        this.event(record, "wire-reserved");
-        this.event(record, "send-intent");
-        this.save(record);
+          // An uncertain commit consumes the in-memory budget before any storage write.
+          this.reserved = true;
+          const record = structuredClone(this.envelope.record),
+            at = new Date().toISOString();
+          const requestBody = this.store.putBlob("request-body", bytes);
+          record.attempts = [
+            {
+              id: randomUUID(),
+              ordinal: 1,
+              candidateIndex: 0,
+              runnerIndex: 0,
+              providerInvocationIndex: 0,
+              adapterHttpAttemptIndex: 0,
+              provider: expected.provider,
+              model: expected.model,
+              effort: expected.effort,
+              transport: "sse",
+              requestBody,
+              preparedAt: at,
+              sendIntentAt: at,
+              state: "send-intent",
+              endpointClass: "chatgpt-codex-backend",
+              method: "POST",
+            },
+          ];
+          this.event(record, "wire-reserved");
+          this.event(record, "send-intent");
+          this.save(record);
+        });
       }),
     onResponse: async (response: { status: number; contentType: string | null }): Promise<void> =>
       this.guard(() => {
@@ -660,29 +700,40 @@ export class LegalEvidenceCapture {
   };
   finishRunner(summary: ExecutionSummary): void {
     this.guard(() => {
-      if (
-        !this.complete ||
-        summary.aborted ||
-        summary.compactions ||
-        summary.toolCalls ||
-        summary.messagingSends ||
-        summary.continuations ||
-        summary.thinkingDowngrades ||
-        summary.authRotations
-      ) {
-        this.reject("retry-denied");
-      }
-      const record = structuredClone(this.envelope.record);
-      record.attempts = [this.complete];
-      record.selectedAttemptId = this.complete.id;
-      record.executionSummary = structuredClone(summary);
-      record.state = "completed";
-      record.holdReason = "none";
-      this.event(record, "sealed");
-      record.endedAt = new Date().toISOString();
-      assertCurrentLegalEvidenceRuntime(this.readRuntime, record.runtime);
-      this.save(record);
+      assertCurrentLegalEvidenceRuntime(this.readRuntime, this.envelope.record.runtime);
+      this.seal(summary);
     });
+  }
+  async finishRunnerAsync(summary: ExecutionSummary): Promise<void> {
+    const snapshot = structuredClone(summary);
+    await this.guardAsync(async () => {
+      await assertCurrentLegalEvidenceRuntimeAsync(this.readRuntime, this.envelope.record.runtime);
+      // A failed/duplicate capture may have changed while the boundary was pending.
+      this.guard(() => this.seal(snapshot));
+    });
+  }
+  private seal(summary: ExecutionSummary): void {
+    if (
+      !this.complete ||
+      summary.aborted ||
+      summary.compactions ||
+      summary.toolCalls ||
+      summary.messagingSends ||
+      summary.continuations ||
+      summary.thinkingDowngrades ||
+      summary.authRotations
+    ) {
+      this.reject("retry-denied");
+    }
+    const record = structuredClone(this.envelope.record);
+    record.attempts = [this.complete];
+    record.selectedAttemptId = this.complete.id;
+    record.executionSummary = structuredClone(summary);
+    record.state = "completed";
+    record.holdReason = "none";
+    this.event(record, "sealed");
+    record.endedAt = new Date().toISOString();
+    this.save(record);
   }
 }
 

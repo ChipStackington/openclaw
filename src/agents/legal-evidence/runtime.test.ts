@@ -11,7 +11,11 @@ import {
   inventoryInstallation,
 } from "./installation.js";
 import { materialInventoryHash, type MaterialInventory } from "./material.js";
-import { createLegalEvidenceRuntimeReader, readCurrentLegalEvidenceRuntime } from "./runtime.js";
+import {
+  createLegalEvidenceRuntimeReader,
+  readCurrentLegalEvidenceRuntime,
+  readCurrentLegalEvidenceRuntimeAsync,
+} from "./runtime.js";
 import type { RuntimeIdentity } from "./types.js";
 
 function setup(cleanup: (callback: () => void) => void) {
@@ -185,4 +189,36 @@ test("reader construction enforces the strict v1 inventory file limit before pub
     ...Array.from({ length: 20000 }, (_, i) => ({ path: `f${i}`, sha256: "f".repeat(64) })),
   ];
   assert.throws(() => createLegalEvidenceRuntimeReader(f.options), /inventory-invalid/);
+});
+
+test("awaited runtime boundaries use the complete guard and remain revoked after drift", async ({
+  onTestFinished,
+}) => {
+  const f = setup(onTestFinished);
+  let calls = 0;
+  const original = f.options.installationGuard;
+  const read = createLegalEvidenceRuntimeReader({
+    ...f.options,
+    installationGuard: {
+      ...original,
+      verifyAsync: async () => {
+        calls++;
+        await original.verifyAsync();
+      },
+    },
+  });
+  assert.deepEqual(await readCurrentLegalEvidenceRuntimeAsync(read), f.expected);
+  assert.equal(calls, 1);
+  fs.writeFileSync(f.adapterModule, "changed while gateway running");
+  await assert.rejects(readCurrentLegalEvidenceRuntimeAsync(read), /installation-drift/);
+  await assert.rejects(readCurrentLegalEvidenceRuntimeAsync(read), /installation-drift/);
+});
+test("an async reader still validates its result and rejects a bare cached identity", async () => {
+  const runtime = fixtures.records.engine.record.runtime;
+  await assert.rejects(readCurrentLegalEvidenceRuntimeAsync(runtime));
+  await assert.rejects(
+    readCurrentLegalEvidenceRuntimeAsync(
+      Object.assign(() => runtime, { readAsync: async () => ({}) }),
+    ),
+  );
 });

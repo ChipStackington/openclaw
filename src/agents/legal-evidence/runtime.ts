@@ -12,7 +12,37 @@ import type { RuntimeIdentity } from "./types.js";
 
 export const legalEvidenceRuntimeModuleUrl = import.meta.url;
 
-export type LegalEvidenceRuntimeReader = () => RuntimeIdentity;
+export type LegalEvidenceRuntimeReader = (() => RuntimeIdentity) & {
+  readAsync?: () => Promise<RuntimeIdentity>;
+};
+
+/** Runtime boundaries await the same guard; startup and loaded-byte hooks stay synchronous. */
+export async function readCurrentLegalEvidenceRuntimeAsync(
+  reader: unknown,
+): Promise<RuntimeIdentity> {
+  if (typeof reader !== "function") {
+    throw new Error("legal-evidence-runtime-unavailable");
+  }
+  const asyncRead = (reader as LegalEvidenceRuntimeReader).readAsync;
+  if (asyncRead === undefined) {
+    return readCurrentLegalEvidenceRuntime(reader);
+  }
+  if (typeof asyncRead !== "function") {
+    throw new Error("legal-evidence-runtime-unavailable");
+  }
+  const runtime: unknown = await asyncRead();
+  assertEvidenceSchema("RuntimeIdentity", runtime);
+  return structuredClone(runtime) as RuntimeIdentity;
+}
+
+export async function assertCurrentLegalEvidenceRuntimeAsync(
+  reader: LegalEvidenceRuntimeReader,
+  expected: RuntimeIdentity,
+): Promise<void> {
+  if (evidenceHash(await readCurrentLegalEvidenceRuntimeAsync(reader)) !== evidenceHash(expected)) {
+    throw new Error("legal-evidence-runtime-drift");
+  }
+}
 
 /** A startup snapshot cannot certify material at a later send or seal boundary. */
 export function readCurrentLegalEvidenceRuntime(reader: unknown): RuntimeIdentity {
@@ -126,8 +156,7 @@ export function createLegalEvidenceRuntimeReader(options: {
     throw new Error("legal-evidence-runtime-drift");
   }
   installationGuard.verify();
-  return () => {
-    installationGuard.verify();
+  const currentIdentity = () => {
     const identity = readIdentity();
     if (
       identity.installationId !== expected.installationId ||
@@ -138,4 +167,13 @@ export function createLegalEvidenceRuntimeReader(options: {
 
     return structuredClone(expected);
   };
+  const read: LegalEvidenceRuntimeReader = () => {
+    installationGuard.verify();
+    return currentIdentity();
+  };
+  read.readAsync = async () => {
+    await installationGuard.verifyAsync();
+    return currentIdentity();
+  };
+  return Object.freeze(read);
 }
