@@ -102,6 +102,32 @@ describe("QmdMemoryManager", () => {
   let cfg: OpenClawConfig;
   const agentId = "main";
 
+  async function installMcporterFixture(kind: "shim" | "node") {
+    // Exercise both Windows launch forms without depending on globally installed tools.
+    vi.spyOn(process, "platform", "get").mockReturnValue("win32");
+    const bin = path.join(tmpRoot, "mcporter-fixture");
+    await fs.mkdir(bin);
+    const shim = kind === "node" ? '@"%~dp0mcporter.mjs" %*\n' : "@echo off\n";
+    await fs.writeFile(path.join(bin, "mcporter.cmd"), shim);
+    if (kind === "node") {
+      await fs.writeFile(path.join(bin, "mcporter.mjs"), "// Never executed: spawn is mocked.\n");
+    }
+    vi.stubEnv("PATH", bin);
+  }
+
+  function mcporterArgs(cmd: unknown, args: string[]): string[] | undefined {
+    if (isMcporterCommand(cmd)) {
+      return args;
+    }
+    if (
+      cmd === process.execPath &&
+      args[0] === path.join(tmpRoot, "mcporter-fixture", "mcporter.mjs")
+    ) {
+      return args.slice(1);
+    }
+    return undefined;
+  }
+
   async function createManager(params?: { mode?: "full" | "status"; cfg?: OpenClawConfig }) {
     const cfgToUse = params?.cfg ?? cfg;
     const resolved = resolveMemoryBackendConfig({ cfg: cfgToUse, agentId });
@@ -156,6 +182,7 @@ describe("QmdMemoryManager", () => {
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     vi.useRealTimers();
     delete process.env.OPENCLAW_STATE_DIR;
     delete (globalThis as Record<string, unknown>).__openclawMcporterDaemonStart;
@@ -1533,48 +1560,54 @@ describe("QmdMemoryManager", () => {
     await manager.close();
   });
 
-  it("runs qmd searches via mcporter and warns when startDaemon=false", async () => {
-    cfg = {
-      ...cfg,
-      memory: {
-        backend: "qmd",
-        qmd: {
-          includeDefaultMemory: false,
-          update: { interval: "0s", debounceMs: 60_000, onBoot: false },
-          paths: [{ path: workspaceDir, pattern: "**/*.md", name: "workspace" }],
-          mcporter: { enabled: true, serverName: "qmd", startDaemon: false },
+  it.each(["shim", "node"] as const)(
+    "runs qmd searches via mcporter and warns when startDaemon=false (%s)",
+    async (kind) => {
+      await installMcporterFixture(kind);
+      cfg = {
+        ...cfg,
+        memory: {
+          backend: "qmd",
+          qmd: {
+            includeDefaultMemory: false,
+            update: { interval: "0s", debounceMs: 60_000, onBoot: false },
+            paths: [{ path: workspaceDir, pattern: "**/*.md", name: "workspace" }],
+            mcporter: { enabled: true, serverName: "qmd", startDaemon: false },
+          },
         },
-      },
-    } as OpenClawConfig;
+      } as OpenClawConfig;
 
-    spawnMock.mockImplementation((cmd: string, args: string[]) => {
-      const child = createMockChild({ autoClose: false });
-      if (isMcporterCommand(cmd) && args[0] === "call") {
-        emitAndClose(child, "stdout", JSON.stringify({ results: [] }));
+      spawnMock.mockImplementation((cmd: string, args: string[]) => {
+        const child = createMockChild({ autoClose: false });
+        if (mcporterArgs(cmd, args)?.[0] === "call") {
+          emitAndClose(child, "stdout", JSON.stringify({ results: [] }));
+          return child;
+        }
+        emitAndClose(child, "stdout", "[]");
         return child;
-      }
-      emitAndClose(child, "stdout", "[]");
-      return child;
-    });
+      });
 
-    const { manager } = await createManager();
+      const { manager } = await createManager();
 
-    logWarnMock.mockClear();
-    await expect(
-      manager.search("hello", { sessionKey: "agent:main:slack:dm:u123" }),
-    ).resolves.toEqual([]);
+      logWarnMock.mockClear();
+      await expect(
+        manager.search("hello", { sessionKey: "agent:main:slack:dm:u123" }),
+      ).resolves.toEqual([]);
 
-    const mcporterCalls = spawnMock.mock.calls.filter((call: unknown[]) =>
-      isMcporterCommand(call[0]),
-    );
-    expect(mcporterCalls.length).toBeGreaterThan(0);
-    expect(mcporterCalls.some((call: unknown[]) => (call[1] as string[])[0] === "daemon")).toBe(
-      false,
-    );
-    expect(logWarnMock).toHaveBeenCalledWith(expect.stringContaining("cold-start"));
+      const mcporterCalls = spawnMock.mock.calls.filter(
+        (call: unknown[]) => mcporterArgs(call[0], call[1] as string[]) !== undefined,
+      );
+      expect(mcporterCalls.length).toBeGreaterThan(0);
+      expect(
+        mcporterCalls.some(
+          (call: unknown[]) => mcporterArgs(call[0], call[1] as string[])?.[0] === "daemon",
+        ),
+      ).toBe(false);
+      expect(logWarnMock).toHaveBeenCalledWith(expect.stringContaining("cold-start"));
 
-    await manager.close();
-  });
+      await manager.close();
+    },
+  );
 
   it("uses mcporter.cmd on Windows when mcporter bridge is enabled", async () => {
     const platformSpy = vi.spyOn(process, "platform", "get").mockReturnValue("win32");
@@ -1693,129 +1726,143 @@ describe("QmdMemoryManager", () => {
     }
   });
 
-  it("passes manager-scoped XDG env to mcporter commands", async () => {
-    cfg = {
-      ...cfg,
-      memory: {
-        backend: "qmd",
-        qmd: {
-          includeDefaultMemory: false,
-          update: { interval: "0s", debounceMs: 60_000, onBoot: false },
-          paths: [{ path: workspaceDir, pattern: "**/*.md", name: "workspace" }],
-          mcporter: { enabled: true, serverName: "qmd", startDaemon: false },
+  it.each(["shim", "node"] as const)(
+    "passes manager-scoped XDG env to mcporter commands (%s)",
+    async (kind) => {
+      await installMcporterFixture(kind);
+      cfg = {
+        ...cfg,
+        memory: {
+          backend: "qmd",
+          qmd: {
+            includeDefaultMemory: false,
+            update: { interval: "0s", debounceMs: 60_000, onBoot: false },
+            paths: [{ path: workspaceDir, pattern: "**/*.md", name: "workspace" }],
+            mcporter: { enabled: true, serverName: "qmd", startDaemon: false },
+          },
         },
-      },
-    } as OpenClawConfig;
+      } as OpenClawConfig;
 
-    spawnMock.mockImplementation((cmd: string, args: string[]) => {
-      const child = createMockChild({ autoClose: false });
-      if (isMcporterCommand(cmd) && args[0] === "call") {
-        emitAndClose(child, "stdout", JSON.stringify({ results: [] }));
-        return child;
-      }
-      emitAndClose(child, "stdout", "[]");
-      return child;
-    });
-
-    const { manager } = await createManager();
-    await manager.search("hello", { sessionKey: "agent:main:slack:dm:u123" });
-
-    const mcporterCall = spawnMock.mock.calls.find(
-      (call: unknown[]) => isMcporterCommand(call[0]) && (call[1] as string[])[0] === "call",
-    );
-    expect(mcporterCall).toBeDefined();
-    const spawnOpts = mcporterCall?.[2] as { env?: NodeJS.ProcessEnv } | undefined;
-    const normalizePath = (value?: string) => value?.replace(/\\/g, "/");
-    expect(normalizePath(spawnOpts?.env?.XDG_CONFIG_HOME)).toContain("/agents/main/qmd/xdg-config");
-    expect(normalizePath(spawnOpts?.env?.XDG_CACHE_HOME)).toContain("/agents/main/qmd/xdg-cache");
-
-    await manager.close();
-  });
-
-  it("retries mcporter daemon start after a failure", async () => {
-    cfg = {
-      ...cfg,
-      memory: {
-        backend: "qmd",
-        qmd: {
-          includeDefaultMemory: false,
-          update: { interval: "0s", debounceMs: 60_000, onBoot: false },
-          paths: [{ path: workspaceDir, pattern: "**/*.md", name: "workspace" }],
-          mcporter: { enabled: true, serverName: "qmd", startDaemon: true },
-        },
-      },
-    } as OpenClawConfig;
-
-    let daemonAttempts = 0;
-    spawnMock.mockImplementation((cmd: string, args: string[]) => {
-      const child = createMockChild({ autoClose: false });
-      if (isMcporterCommand(cmd) && args[0] === "daemon") {
-        daemonAttempts += 1;
-        if (daemonAttempts === 1) {
-          emitAndClose(child, "stderr", "failed", 1);
-        } else {
-          emitAndClose(child, "stdout", "");
+      spawnMock.mockImplementation((cmd: string, args: string[]) => {
+        const child = createMockChild({ autoClose: false });
+        if (mcporterArgs(cmd, args)?.[0] === "call") {
+          emitAndClose(child, "stdout", JSON.stringify({ results: [] }));
+          return child;
         }
+        emitAndClose(child, "stdout", "[]");
         return child;
-      }
-      if (isMcporterCommand(cmd) && args[0] === "call") {
-        emitAndClose(child, "stdout", JSON.stringify({ results: [] }));
-        return child;
-      }
-      emitAndClose(child, "stdout", "[]");
-      return child;
-    });
+      });
 
-    const { manager } = await createManager();
+      const { manager } = await createManager();
+      await manager.search("hello", { sessionKey: "agent:main:slack:dm:u123" });
 
-    await manager.search("one", { sessionKey: "agent:main:slack:dm:u123" });
-    await manager.search("two", { sessionKey: "agent:main:slack:dm:u123" });
+      const mcporterCall = spawnMock.mock.calls.find(
+        (call: unknown[]) => mcporterArgs(call[0], call[1] as string[])?.[0] === "call",
+      );
+      expect(mcporterCall).toBeDefined();
+      const spawnOpts = mcporterCall?.[2] as { env?: NodeJS.ProcessEnv } | undefined;
+      const normalizePath = (value?: string) => value?.replace(/\\/g, "/");
+      expect(normalizePath(spawnOpts?.env?.XDG_CONFIG_HOME)).toContain(
+        "/agents/main/qmd/xdg-config",
+      );
+      expect(normalizePath(spawnOpts?.env?.XDG_CACHE_HOME)).toContain("/agents/main/qmd/xdg-cache");
 
-    expect(daemonAttempts).toBe(2);
+      await manager.close();
+    },
+  );
 
-    await manager.close();
-  });
-
-  it("starts the mcporter daemon only once when enabled", async () => {
-    cfg = {
-      ...cfg,
-      memory: {
-        backend: "qmd",
-        qmd: {
-          includeDefaultMemory: false,
-          update: { interval: "0s", debounceMs: 60_000, onBoot: false },
-          paths: [{ path: workspaceDir, pattern: "**/*.md", name: "workspace" }],
-          mcporter: { enabled: true, serverName: "qmd", startDaemon: true },
+  it.each(["shim", "node"] as const)(
+    "retries mcporter daemon start after a failure (%s)",
+    async (kind) => {
+      await installMcporterFixture(kind);
+      cfg = {
+        ...cfg,
+        memory: {
+          backend: "qmd",
+          qmd: {
+            includeDefaultMemory: false,
+            update: { interval: "0s", debounceMs: 60_000, onBoot: false },
+            paths: [{ path: workspaceDir, pattern: "**/*.md", name: "workspace" }],
+            mcporter: { enabled: true, serverName: "qmd", startDaemon: true },
+          },
         },
-      },
-    } as OpenClawConfig;
+      } as OpenClawConfig;
 
-    spawnMock.mockImplementation((cmd: string, args: string[]) => {
-      const child = createMockChild({ autoClose: false });
-      if (isMcporterCommand(cmd) && args[0] === "daemon") {
-        emitAndClose(child, "stdout", "");
+      let daemonAttempts = 0;
+      spawnMock.mockImplementation((cmd: string, args: string[]) => {
+        const child = createMockChild({ autoClose: false });
+        if (mcporterArgs(cmd, args)?.[0] === "daemon") {
+          daemonAttempts += 1;
+          if (daemonAttempts === 1) {
+            emitAndClose(child, "stderr", "failed", 1);
+          } else {
+            emitAndClose(child, "stdout", "");
+          }
+          return child;
+        }
+        if (mcporterArgs(cmd, args)?.[0] === "call") {
+          emitAndClose(child, "stdout", JSON.stringify({ results: [] }));
+          return child;
+        }
+        emitAndClose(child, "stdout", "[]");
         return child;
-      }
-      if (isMcporterCommand(cmd) && args[0] === "call") {
-        emitAndClose(child, "stdout", JSON.stringify({ results: [] }));
+      });
+
+      const { manager } = await createManager();
+
+      await manager.search("one", { sessionKey: "agent:main:slack:dm:u123" });
+      await manager.search("two", { sessionKey: "agent:main:slack:dm:u123" });
+
+      expect(daemonAttempts).toBe(2);
+
+      await manager.close();
+    },
+  );
+
+  it.each(["shim", "node"] as const)(
+    "starts the mcporter daemon only once when enabled (%s)",
+    async (kind) => {
+      await installMcporterFixture(kind);
+      cfg = {
+        ...cfg,
+        memory: {
+          backend: "qmd",
+          qmd: {
+            includeDefaultMemory: false,
+            update: { interval: "0s", debounceMs: 60_000, onBoot: false },
+            paths: [{ path: workspaceDir, pattern: "**/*.md", name: "workspace" }],
+            mcporter: { enabled: true, serverName: "qmd", startDaemon: true },
+          },
+        },
+      } as OpenClawConfig;
+
+      spawnMock.mockImplementation((cmd: string, args: string[]) => {
+        const child = createMockChild({ autoClose: false });
+        if (mcporterArgs(cmd, args)?.[0] === "daemon") {
+          emitAndClose(child, "stdout", "");
+          return child;
+        }
+        if (mcporterArgs(cmd, args)?.[0] === "call") {
+          emitAndClose(child, "stdout", JSON.stringify({ results: [] }));
+          return child;
+        }
+        emitAndClose(child, "stdout", "[]");
         return child;
-      }
-      emitAndClose(child, "stdout", "[]");
-      return child;
-    });
+      });
 
-    const { manager } = await createManager();
+      const { manager } = await createManager();
 
-    await manager.search("one", { sessionKey: "agent:main:slack:dm:u123" });
-    await manager.search("two", { sessionKey: "agent:main:slack:dm:u123" });
+      await manager.search("one", { sessionKey: "agent:main:slack:dm:u123" });
+      await manager.search("two", { sessionKey: "agent:main:slack:dm:u123" });
 
-    const daemonStarts = spawnMock.mock.calls.filter(
-      (call: unknown[]) => isMcporterCommand(call[0]) && (call[1] as string[])[0] === "daemon",
-    );
-    expect(daemonStarts).toHaveLength(1);
+      const daemonStarts = spawnMock.mock.calls.filter(
+        (call: unknown[]) => mcporterArgs(call[0], call[1] as string[])?.[0] === "daemon",
+      );
+      expect(daemonStarts).toHaveLength(1);
 
-    await manager.close();
-  });
+      await manager.close();
+    },
+  );
 
   it("fails closed when no managed collections are configured", async () => {
     cfg = {

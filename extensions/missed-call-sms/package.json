@@ -1,6 +1,6 @@
 {
   "name": "@openclaw/missed-call-sms",
-  "version": "0.1.0",
+  "version": "2026.3.9",
   "description": "OpenClaw Missed-Call-to-SMS service template — turns missed phone calls into AI-driven SMS conversations. Wired Wisdom AI.",
   "type": "module",
   "dependencies": {
